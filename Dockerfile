@@ -30,5 +30,5 @@ RUN mkdir -p uploaded_files chroma_db app/db
 # 9. Expose application port 8002
 EXPOSE 8002
 
-# 10. Launch FastAPI app via Uvicorn bound to 0.0.0.0
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8002"]
+# 10. Launch FastAPI app via Uvicorn (supports dynamic cloud PORT or defaults to 8002)
+CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8002}"]
