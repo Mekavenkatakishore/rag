@@ -460,7 +460,9 @@ def query_rag_service(prompt: str, chat_history: list = None):
 
     logger.info(f"--- RAG Debug: Retrieved {len(relevant_docs)} documents for rewritten query '{rewritten_prompt}' ---")
     for idx, doc in enumerate(relevant_docs):
-        logger.info(f"Doc {idx + 1} Source: {doc.metadata.get('filename')} | Content snippet: {doc.page_content[:150].replace('\n', ' ')}")
+        snippet_sample = doc.page_content[:150].replace('\n', ' ')
+        logger.info(f"Doc {idx + 1} Source: {doc.metadata.get('filename')} | Content snippet: {snippet_sample}")
+
         
     # Prepare citations and text context
     context_chunks = []
