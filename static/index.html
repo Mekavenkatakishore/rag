@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intelligent RAG Playbook Assistant</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  AUTH MODAL — Shown when user is not logged in             -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div class="auth-overlay" id="auth-overlay">
+        <div class="auth-modal">
+            <div class="auth-modal-header">
+                <div class="logo">
+                    <i data-lucide="cpu" class="logo-icon"></i>
+                    <span>RAG <span class="accent-text">Pro</span></span>
+                </div>
+                <p class="auth-subtitle">Sign in to access your knowledge assistant</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Login</button>
+                <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Sign Up</button>
+            </div>
+
+            <!-- Login Form -->
+            <form class="auth-form" id="form-login">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="user"></i>
+                        <input type="text" id="login-username" placeholder="Enter your username" autocomplete="username" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="lock"></i>
+                        <input type="password" id="login-password" placeholder="Enter your password" autocomplete="current-password" required>
+                    </div>
+                </div>
+                <div class="auth-error" id="login-error"></div>
+                <button type="submit" class="auth-submit-btn" id="login-btn">
+                    <span>Sign In</span>
+                    <i data-lucide="arrow-right"></i>
+                </button>
+                <p class="auth-switch-text">Don't have an account? <a onclick="switchTab('register')">Sign up</a></p>
+            </form>
+
+            <!-- Register Form (hidden by default) -->
+            <form class="auth-form hidden" id="form-register">
+                <div class="form-group">
+                    <label for="reg-username">Username</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="user"></i>
+                        <input type="text" id="reg-username" placeholder="Choose a username (min 3 chars)" autocomplete="username" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="reg-email">Email</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="mail"></i>
+                        <input type="email" id="reg-email" placeholder="your@email.com" autocomplete="email" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="reg-password">Password</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="lock"></i>
+                        <input type="password" id="reg-password" placeholder="At least 6 characters" autocomplete="new-password" required>
+                    </div>
+                </div>
+                <div class="auth-error" id="register-error"></div>
+                <button type="submit" class="auth-submit-btn" id="register-btn">
+                    <span>Create Account</span>
+                    <i data-lucide="user-plus"></i>
+                </button>
+                <p class="auth-switch-text">Already have an account? <a onclick="switchTab('login')">Sign in</a></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  MAIN APP                                                  -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div class="app-container">
+        <!-- Sidebar: Uploads & Document Registry -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i data-lucide="cpu" class="logo-icon"></i>
+                    <span>RAG <span class="accent-text">Pro</span></span>
+                </div>
+                <div class="status-badge" id="index-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Idle</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Upload Playbooks</h3>
+                <div class="upload-zone" id="dropzone">
+                    <input type="file" id="file-input" accept=".pdf,.docx,.txt,.csv,.pptx,.html,.htm,.md" style="display: none;">
+                    <i data-lucide="upload-cloud" class="upload-icon"></i>
+                    <p class="upload-text">Drag & drop files or <span class="browse-link">browse</span></p>
+                    <p class="upload-sub">Supports PDF, DOCX, TXT, CSV, PPTX, HTML, MD</p>
+                </div>
+                
+                <!-- Upload Progress Bar -->
+                <div class="progress-container" id="upload-progress-container" style="display: none;">
+                    <div class="progress-header">
+                        <span id="upload-filename">file.pdf</span>
+                        <span id="upload-percentage">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="upload-progress-fill"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section files-section">
+                <h3>Document Library</h3>
+                <div class="file-list" id="uploaded-files-list">
+                    <div class="empty-files">
+                        <i data-lucide="folder-open" class="empty-icon"></i>
+                        <p>No documents uploaded yet</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <!-- User Session Badge -->
+                <div class="user-session" id="user-session">
+                    <div class="user-avatar">
+                        <i data-lucide="user-check"></i>
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name" id="user-name-display">User</span>
+                        <span class="user-role">Authenticated</span>
+                    </div>
+                    <button class="logout-btn" id="logout-btn" title="Log out">
+                        <i data-lucide="log-out"></i>
+                    </button>
+                </div>
+                <div class="powered-by">
+                    <i data-lucide="zap"></i>
+                    <span>Powered by Llama-3.1 & Chroma</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-container">
+            <header class="chat-header">
+                <div class="header-info">
+                    <h2>Knowledge Assistant</h2>
+                    <p>Grounded in your uploaded playbooks and documentation</p>
+                </div>
+                <button class="clear-btn" id="clear-chat" title="Clear Conversation">
+                    <i data-lucide="trash-2"></i>
+                </button>
+            </header>
+
+            <!-- Chat Message Feed -->
+            <div class="chat-feed" id="chat-messages">
+                <!-- Welcome Message -->
+                <div class="message bot-message welcome-msg">
+                    <div class="message-avatar">
+                        <i data-lucide="bot"></i>
+                    </div>
+                    <div class="message-content">
+                        <p>Hello! I am your RAG Assistant. Upload your regulatory files, HR playbooks, or troubleshooting documents in the sidebar, and I will answer your questions using only those sources.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Bar -->
+            <footer class="chat-input-area">
+                <form class="input-form" id="chat-form">
+                    <input type="text" id="query-input" placeholder="Ask a question about your documents..." autocomplete="off" required>
+                    <button type="submit" class="send-btn" id="send-button">
+                        <i data-lucide="send"></i>
+                    </button>
+                </form>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Script -->
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Environment & API Keys
+.env
+*.env
+
+# Python Cache & Environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+
+# Temporary & Local Database Files (keep folders clean)
+*.log
+chroma_db/
+uploaded_files/*
+!uploaded_files/.gitkeep
+app/db/users.db
