@@ -1,41 +1,66 @@
-# Intelligent Hybrid RAG Chatbot (RAG Pro)
+# Intelligent Hybrid RAG & AI HR Candidate Matcher (RAG Pro)
 
-Welcome to **RAG Pro**, a comprehensive, full-stack, enterprise-grade Retrieval-Augmented Generation (RAG) assistant designed for playbooks, manuals, regulations, and troubleshooting guides. 
+Welcome to **RAG Pro**, a comprehensive, full-stack, enterprise-grade AI assistant combining **Playbook & Document Q&A RAG** with an **AI HR Resume & Candidate Matching Assistant**.
 
-This repository leverages **LangChain**, **FastAPI**, **Chroma DB**, **FlashRank Reranker**, and **Groq Cloud (Llama 3.1)** to deliver real-time, highly accurate answers backed by precise document source and page-level citations.
+This repository leverages **LangChain**, **FastAPI**, **Chroma DB**, **FlashRank Reranker**, and **Groq Cloud (Llama 3.1)** to deliver real-time, grounded document answers alongside deterministic candidate fit rankings backed by precise citation evidence.
 
 ---
 
 ## 🛠️ Key Architectural Features
 
-- **Dynamic Multi-Format Ingestor**: Supported by a custom loader factory capable of parsing `.pdf`, `.docx`, `.txt`, `.csv`, `.pptx`, `.html`, and `.md` documents.
-- **Hybrid Search Engine**: Combines Dense Retrieval (semantic vector search via `Chroma` + `sentence-transformers`) and Sparse Retrieval (keyword search via `BM25`) in a weighted ensemble retriever.
-- **Stage 2 Contextual Reranking**: Uses a local **FlashRank Cross-Encoder** model to re-score candidate chunks and compress context down to the top 4 most relevant chunks.
-- **⚡ Real-Time SSE Token Streaming**: Streams LLM output tokens word-by-word into the UI via **Server-Sent Events (SSE)** using `POST /query/stream` and Groq's `llama-3.1-8b-instant`.
-- **⚡ Incremental Indexing & BM25 Pickle Cache**: Smart change detection via `index_registry.json` and persistent `bm25_cache.pkl` — skips re-chunking/re-embedding on server restarts for sub-5-second startup times.
-- **🔐 JWT Authentication**: Built-in user registration, login, PBKDF2 password hashing with salt, and bearer token authorization.
-- **🗑️ Document Lifecycle Management**: Delete button on each uploaded file in the UI sidebar (`DELETE /files/{filename}`) that automatically cleans up disk files, Chroma vectorstore entries, and index registry metadata.
-- **🐳 Docker Containerization**: Includes production `Dockerfile`, `docker-compose.yml`, `.dockerignore`, and volume mounts for 1-command deployment.
+### 👤 1. AI HR Candidate Matcher & Resume Screening (Phase 1)
+- **Target Job Description Parser**: Extracts structured role requirements, required/preferred skills, minimum experience, and education criteria via Groq LLM.
+- **Canonical Skill Normalization**: Built-in skill normalizer (`app/services/skill_normalizer.py`) mapping tech variations (`Postgres` $\rightarrow$ `PostgreSQL`, `ReactJS` $\rightarrow$ `React`, `K8s` $\rightarrow$ `Kubernetes`, `NodeJS` $\rightarrow$ `Node.js`, `Amazon EC2` $\rightarrow$ `AWS`).
+- **Deterministic Weighted Scoring Engine**: Application-level Python math (`app/services/scoring_engine.py`) calculating 100% reproducible scores (0–100) without LLM score hallucinations:
+  - **Required Skills Fit:** 40%
+  - **Relevant Experience:** 25%
+  - **Project Relevance:** 15%
+  - **Preferred Skills Fit:** 10%
+  - **Education Fit:** 5%
+  - **Domain Fit:** 5%
+- **Fit Status Classification**: Automatically classifies candidates into `Strong Fit (≥80%)`, `Moderate Fit (60-79%)`, and `Weak Fit (<60%)`.
+- **Hybrid Evidence Retrieval & FlashRank Reranking**: Filters vector & BM25 chunks by `job_id` and `candidate_id`, followed by FlashRank cross-encoder reranking to fetch top 5–6 supporting evidence passages.
+- **Job-Isolated SQLite Persistence**: SQLite database (`app/db/hr_system.db`) tracking jobs (`hr_jobs`), candidate records (`hr_candidates`), profiles (`hr_candidate_profiles`), scores (`hr_candidate_scores`), and evidence quotes (`hr_candidate_evidence`).
+- **Candidate Leaderboard & Citation Verification UI**: Ranked candidate leaderboard table with interactive details modal showing score breakdowns, matched/missing skill chips, exact resume quotes, document names, and page numbers.
+- **Candidate Session Clear**: "Clear All Data" header button purging candidate records, scores, and disk files for fresh screening sessions.
+
+---
+
+### 📚 2. General RAG Playbook Assistant
+- **Dynamic Multi-Format Ingestor**: Loader factory supporting `.pdf`, `.docx`, `.txt`, `.csv`, `.pptx`, `.html`, and `.md` documents.
+- **Hybrid Search Engine**: Combines Dense Retrieval (`ChromaDB` + `sentence-transformers/all-MiniLM-L6-v2`) and Sparse Retrieval (`BM25Retriever`) in a weighted ensemble.
+- **Stage 2 Contextual Reranking**: Uses local **FlashRank Cross-Encoder** model to re-score candidate passages and compress context down to top 4 relevant chunks.
+- **⚡ Real-Time SSE Token Streaming**: Word-by-word LLM token streaming via **Server-Sent Events (SSE)** using `POST /query/stream` and Groq's `llama-3.1-8b-instant`.
+- **⚡ Incremental Indexing & BM25 Pickle Cache**: Change detection via `index_registry.json` and persistent `bm25_cache.pkl` — sub-5-second server startup time.
+- **🔐 JWT Authentication**: User registration, login, PBKDF2 password hashing with salt, and bearer token authorization.
+- **🗑️ Document Lifecycle Management**: Delete button in UI sidebar (`DELETE /files/{filename}`) cleaning up disk files, Chroma vectorstore entries, and index metadata.
+- **🐳 Docker Containerization**: Production `Dockerfile`, `docker-compose.yml`, `.dockerignore`, and volume mounts.
 
 ---
 
 ## 📂 Project Structure
 
-- [server.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/server.py): Entry point for backend server; mounts routes, configures CORS, static UI redirect, and triggers startup indexing.
-- [Dockerfile](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/Dockerfile): Production Docker container configuration (Python 3.11-slim + C++ build tools).
-- [docker-compose.yml](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/docker-compose.yml): Docker Compose file with persistent volume mounts (`uploaded_files`, `chroma_db`, `app/db`).
-- [requirements.txt](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/requirements.txt): List of Python dependencies.
-- **app/**: Backend source directory.
-  - **api/**: FastAPI routes:
+- [server.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/server.py): Main ASGI server entry point; initializes databases, mounts API routers, CORS, and static UI routes.
+- [Dockerfile](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/Dockerfile): Production Docker configuration (Python 3.11-slim + C++ build tools).
+- [docker-compose.yml](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/docker-compose.yml): Docker Compose configuration with volume mounts (`uploaded_files`, `chroma_db`, `app/db`).
+- [requirements.txt](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/requirements.txt): Python dependencies.
+- **app/**: Backend application code.
+  - **api/**: FastAPI route handlers:
     - [endpoints.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/api/endpoints.py): `/upload`, `/query`, `/query/stream`, `DELETE /files/{filename}`, `/status`.
-    - [auth.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/api/auth.py): `/auth/register` and `/auth/login`.
+    - [hr_endpoints.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/api/hr_endpoints.py): Job-scoped HR routes (`POST /hr/jobs`, upload JD, upload resumes, candidate analysis, leaderboard, candidate details, candidate chat, clear session).
+    - [auth.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/api/auth.py): User `/auth/register` and `/auth/login`.
     - [deps.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/api/deps.py): JWT authentication dependency.
-  - **db/**: User database layer:
-    - [user_db.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/db/user_db.py): SQLite user database storage and PBKDF2 password hashing.
-  - **loaders/**: Parsers for multiple document formats (`pdf`, `docx`, `csv`, `ppt`, `html`, `md`, `txt`).
-  - **services/**: Business Logic:
-    - [rag_service.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/services/rag_service.py): Manages incremental indexing, hybrid search, FlashRank reranking, SSE streaming generator, and BM25 cache.
-- **static/**: Frontend dark-mode UI dashboard ([index.html](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/static/index.html), [style.css](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/static/style.css), [app.js](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/static/app.js)).
+  - **db/**: Database persistence layer:
+    - [hr_db.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/db/hr_db.py): SQLite storage for HR jobs, candidates, profiles, scores, and citations.
+    - [user_db.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/db/user_db.py): SQLite storage for user accounts and PBKDF2 password hashing.
+  - **loaders/**: Loader factory parsing multiple document formats (`pdf`, `docx`, `csv`, `ppt`, `html`, `md`, `txt`).
+  - **services/**: Core Business Logic:
+    - [hr_service.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/services/hr_service.py): JD parsing, batch resume ingestion, hybrid candidate evidence retrieval, FlashRank reranking, and LLM evidence extraction.
+    - [scoring_engine.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/services/scoring_engine.py): Deterministic candidate match score calculator.
+    - [skill_normalizer.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/services/skill_normalizer.py): Canonical tech skill mapper.
+    - [rag_service.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/services/rag_service.py): Incremental indexing, hybrid search, FlashRank reranking, SSE streaming generator, and BM25 cache.
+- **static/**: Frontend dark-mode dashboard ([index.html](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/static/index.html), [style.css](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/static/style.css), [app.js](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/static/app.js)).
+- **tests/**: Test suite ([test_hr_matching.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/tests/test_hr_matching.py)).
 
 ---
 
@@ -60,23 +85,18 @@ HYBRID_KEYWORD_WEIGHT=0.5
 ### 3. Install Dependencies & Run Locally
 ```bash
 pip install -r requirements.txt
-python -m uvicorn server:app --port 8002
+python -m uvicorn server:app --reload --port 8002
 ```
-Access the application directly at: **`http://localhost:8002`**
+Access the application at: **`http://localhost:8002`**
 
 ---
 
-## 🐳 Docker Deployment
+## 🧪 Running Automated Tests
 
-### Run with Docker Compose
+Run the HR Candidate Matcher unit test suite:
 ```bash
-docker-compose up --build
+python -m unittest tests/test_hr_matching.py
 ```
-
-### Cloud Deployment (AWS App Runner / Railway / Render)
-1. Push repository to GitHub.
-2. Connect to AWS App Runner / Railway.
-3. The platform automatically detects `Dockerfile` and deploys to a public HTTPS URL.
 
 ---
 
@@ -84,15 +104,19 @@ docker-compose up --build
 
 ### 1. User Registration & Login
 - `POST /auth/register` — Body: `{"username": "...", "email": "...", "password": "..."}`
-- `POST /auth/login` — Body: `{"username": "...", "password": "..."}` → Returns JWT Access Token.
+- `POST /auth/login` — Body: `{"username": "...", "password": "..."}` $\rightarrow$ Returns JWT Access Token.
 
-### 2. Upload Document
-- `POST /upload` — `multipart/form-data` with `file`. Header: `Authorization: Bearer <token>`.
+### 2. AI HR Candidate Matcher Endpoints
+- `POST /hr/jobs` — Body: `{"title": "Role Title"}` $\rightarrow$ Creates new job container.
+- `POST /hr/jobs/{job_id}/upload-jd` — Form: `file` (PDF, DOCX, TXT) $\rightarrow$ Uploads and parses JD requirements.
+- `POST /hr/jobs/{job_id}/upload-resumes` — Form: `files` (batch PDFs/DOCXs) $\rightarrow$ Indexes candidate resumes with metadata.
+- `POST /hr/jobs/{job_id}/analyze` — Triggers hybrid evidence retrieval, FlashRank reranking, and deterministic candidate scoring.
+- `GET /hr/jobs/{job_id}/leaderboard` — Returns candidate rankings and leaderboard JSON.
+- `GET /hr/jobs/{job_id}/candidates/{candidate_id}` — Returns candidate profile, score breakdown metrics, and exact evidence quotes with page citations.
+- `POST /hr/jobs/{job_id}/chat` — Body: `{"prompt": "..."}` $\rightarrow$ HR Q&A about candidates in active job.
+- `POST /hr/jobs/{job_id}/clear` — Purges candidate records, scores, evidence, and uploaded disk files for a specific job.
 
-### 3. Stream Query (SSE - Word-by-Word)
-- `POST /query/stream` — Body: `{"prompt": "...", "chat_history": [...]}`. Header: `Authorization: Bearer <token>`.
-- Returns: `text/event-stream` with citation payload and real-time LLM tokens.
-
-### 4. Delete File
-- `DELETE /files/{filename}` — Header: `Authorization: Bearer <token>`. Removes document from disk, vectorstore, and index registry.
-
+### 3. General RAG Playbook Endpoints
+- `POST /upload` — `multipart/form-data` with `file`.
+- `POST /query/stream` — Body: `{"prompt": "...", "chat_history": [...]}` $\rightarrow$ Returns `text/event-stream` SSE tokens.
+- `DELETE /files/{filename}` — Removes document from disk, vectorstore, and index registry.
