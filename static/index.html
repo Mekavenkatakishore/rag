@@ -163,41 +163,166 @@
             </div>
         </aside>
 
-        <!-- Main Chat Area -->
+        <!-- Main Chat / HR Area -->
         <main class="chat-container">
             <header class="chat-header">
                 <div class="header-info">
-                    <h2>Knowledge Assistant</h2>
-                    <p>Grounded in your uploaded playbooks and documentation</p>
+                    <h2 id="view-title">Knowledge Assistant</h2>
+                    <p id="view-subtitle">Grounded in your uploaded playbooks and documentation</p>
                 </div>
+
+                <!-- Mode Switcher -->
+                <div class="mode-switch-group">
+                    <button class="mode-btn active" id="mode-rag" onclick="switchAppMode('rag')">
+                        <i data-lucide="message-square"></i>
+                        <span>General RAG</span>
+                    </button>
+                    <button class="mode-btn" id="mode-hr" onclick="switchAppMode('hr')">
+                        <i data-lucide="users"></i>
+                        <span>HR Candidate Matcher</span>
+                    </button>
+                </div>
+
                 <button class="clear-btn" id="clear-chat" title="Clear Conversation">
                     <i data-lucide="trash-2"></i>
                 </button>
             </header>
 
-            <!-- Chat Message Feed -->
-            <div class="chat-feed" id="chat-messages">
-                <!-- Welcome Message -->
-                <div class="message bot-message welcome-msg">
-                    <div class="message-avatar">
-                        <i data-lucide="bot"></i>
+            <!-- GENERAL RAG CHAT VIEW -->
+            <div id="view-rag-chat" class="app-view">
+                <!-- Chat Message Feed -->
+                <div class="chat-feed" id="chat-messages">
+                    <!-- Welcome Message -->
+                    <div class="message bot-message welcome-msg">
+                        <div class="message-avatar">
+                            <i data-lucide="bot"></i>
+                        </div>
+                        <div class="message-content">
+                            <p>Hello! I am your RAG Assistant. Upload your regulatory files, HR playbooks, or troubleshooting documents in the sidebar, and I will answer your questions using only those sources.</p>
+                        </div>
                     </div>
-                    <div class="message-content">
-                        <p>Hello! I am your RAG Assistant. Upload your regulatory files, HR playbooks, or troubleshooting documents in the sidebar, and I will answer your questions using only those sources.</p>
+                </div>
+
+                <!-- Input Bar -->
+                <footer class="chat-input-area">
+                    <form class="input-form" id="chat-form">
+                        <input type="text" id="query-input" placeholder="Ask a question about your documents..." autocomplete="off" required>
+                        <button type="submit" class="send-btn" id="send-button">
+                            <i data-lucide="send"></i>
+                        </button>
+                    </form>
+                </footer>
+            </div>
+
+            <!-- HR CANDIDATE MATCHER VIEW -->
+            <div id="view-hr-matcher" class="app-view hidden">
+                <div class="hr-dashboard-container">
+                    
+                    <!-- HR Upload Bar -->
+                    <div class="hr-upload-cards">
+                        <!-- Job Description Upload Card -->
+                        <div class="hr-card">
+                            <div class="hr-card-header">
+                                <i data-lucide="file-badge-2" class="hr-card-icon"></i>
+                                <div>
+                                    <h4>1. Target Job Description (JD)</h4>
+                                    <p id="active-jd-status">Upload active job description</p>
+                                </div>
+                            </div>
+                            <div class="upload-zone mini-zone" id="jd-dropzone" onclick="document.getElementById('jd-file-input').click()">
+                                <input type="file" id="jd-file-input" accept=".pdf,.docx,.txt" style="display: none;">
+                                <i data-lucide="file-up"></i>
+                                <span>Upload JD Document</span>
+                            </div>
+                            <div id="jd-requirements-chips" class="skills-chip-box"></div>
+                        </div>
+
+                        <!-- Resumes Upload Card -->
+                        <div class="hr-card">
+                            <div class="hr-card-header">
+                                <i data-lucide="folder-up" class="hr-card-icon"></i>
+                                <div>
+                                    <h4>2. Batch Candidate Resumes</h4>
+                                    <p id="resumes-upload-status">Upload candidate resumes (PDF, DOCX)</p>
+                                </div>
+                            </div>
+                            <div class="upload-zone mini-zone" id="resumes-dropzone" onclick="document.getElementById('resumes-file-input').click()">
+                                <input type="file" id="resumes-file-input" accept=".pdf,.docx,.txt" multiple style="display: none;">
+                                <i data-lucide="upload"></i>
+                                <span>Batch Upload Resumes</span>
+                            </div>
+                            <button class="action-btn-primary" id="analyze-candidates-btn" onclick="runHREvaluation()">
+                                <i data-lucide="sparkles"></i>
+                                <span>Run AI Matching & Leaderboard</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- CANDIDATE LEADERBOARD TABLE -->
+                    <div class="hr-leaderboard-section">
+                        <div class="leaderboard-header">
+                            <h3>🏆 Candidate Match Leaderboard</h3>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span class="candidates-count-badge" id="candidates-count">0 Candidates Scored</span>
+                                <button class="clear-btn" id="clear-hr-btn" onclick="clearHRSession()" title="Clear All Data & Reset Leaderboard" style="padding: 6px 12px; height: auto;">
+                                    <i data-lucide="trash-2"></i>
+                                    <span style="font-size: 0.8rem; margin-left: 4px;">Clear All Data</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="leaderboard-table-wrapper">
+                            <table class="leaderboard-table">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Candidate Name</th>
+                                        <th>Match Score %</th>
+                                        <th>Fit Status</th>
+                                        <th>Matched Required Skills</th>
+                                        <th>Missing Skills</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leaderboard-body">
+                                    <tr>
+                                        <td colspan="7" class="empty-table-msg">
+                                            Upload a Job Description and candidate resumes above, then click <strong>Run AI Matching</strong>.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Input Bar -->
-            <footer class="chat-input-area">
-                <form class="input-form" id="chat-form">
-                    <input type="text" id="query-input" placeholder="Ask a question about your documents..." autocomplete="off" required>
-                    <button type="submit" class="send-btn" id="send-button">
-                        <i data-lucide="send"></i>
-                    </button>
-                </form>
-            </footer>
         </main>
+    </div>
+
+    <!-- Candidate Detail & Citations Modal -->
+    <div class="auth-overlay hidden" id="candidate-modal">
+        <div class="auth-modal candidate-detail-modal">
+            <div class="auth-modal-header">
+                <div class="modal-title-row">
+                    <h3 id="modal-candidate-name">Candidate Evaluation Details</h3>
+                    <span class="fit-badge" id="modal-fit-badge">Strong Fit</span>
+                </div>
+                <button class="close-modal-btn" onclick="closeCandidateModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="score-breakdown-row">
+                    <div class="score-card-big">
+                        <span class="score-num" id="modal-final-score">92%</span>
+                        <span class="score-lbl">Match Score</span>
+                    </div>
+                    <div class="breakdown-metrics" id="modal-breakdown-metrics"></div>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Matched Skills & Evidence</h4>
+                    <div id="modal-evidence-list"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Script -->

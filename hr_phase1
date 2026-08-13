@@ -1,0 +1,150 @@
+# AI HR Candidate Matcher — Phase 1 Implementation Plan
+
+Extend the existing RAG application into a production-ready, deterministic **AI HR Resume & Candidate Matching Assistant**.
+
+This plan preserves all existing RAG and general chat capabilities while introducing a job-isolated candidate screening workflow with skill normalization, hybrid evidence retrieval, FlashRank cross-encoder reranking, LLM evidence extraction, deterministic scoring math, SQLite persistence, and a dedicated HR Dashboard UI.
+
+---
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Deterministic Scoring Architecture**: Candidate qualification percentage scores will **NOT** be generated directly by LLMs. Instead, LLMs will perform structured fact & evidence extraction from candidate resumes, and application code in Python will apply configurable deterministic weights:
+> - **Required Skills**: 40%
+> - **Relevant Experience**: 25%
+> - **Project Relevance**: 15%
+> - **Preferred Skills**: 10%
+> - **Education**: 5%
+> - **Domain Fit**: 5%
+
+> [!NOTE]
+> **Zero Regression & Component Reuse**: We reuse existing components without duplication:
+> - Document Loaders (`loader_factory.py`)
+> - Text Splitter & Embeddings (`sentence-transformers/all-MiniLM-L6-v2`)
+> - ChromaDB Vector Store (`chroma_db`) & BM25 Keyword Search (`BM25Retriever`)
+> - Reranking (`FlashRank`)
+> - Groq LLM Provider (`ChatGroq`)
+> - JWT Authentication (`app/api/deps.py`)
+
+---
+
+## Open Questions
+
+1. **Database Backend**: The specification allows SQLite or PostgreSQL. We propose using **SQLite** (`hr_db.py` in `app/db/`) via SQLAlchemy, keeping zero extra setup requirement for local development while remaining 100% compatible with PostgreSQL. Is SQLite preferred for local dev? *(Recommended: SQLite via SQLAlchemy)*.
+2. **Backward Compatibility**: Should we maintain legacy single-job endpoints (`/hr/upload-jd`, `/hr/upload-resumes`, `/hr/leaderboard`) alongside the new job-isolated routes (`/hr/jobs/{job_id}/...`)? *(Recommended: Yes, wrap legacy endpoints to use default active `job_id`)*.
+
+---
+
+## Proposed Changes
+
+---
+
+### Database & Data Persistence
+
+#### [NEW] [hr_db.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/db/hr_db.py)
+* Create SQLite database schema using SQLAlchemy:
+  * `jobs`: Stores `job_id`, `user_id`, `title`, `created_at`, `jd_filename`, `jd_parsed_json`.
+  * `candidates`: Stores `candidate_id`, `job_id`, `name`, `email`, `filename`, `processed_status`.
+  * `candidate_profiles`: Stores extracted structured candidate profile (skills, experience years, education, roles).
+  * `candidate_scores`: Stores calculated final score, fit category (`Strong Fit`, `Moderate Fit`, `Weak Fit`), and component score breakdowns (`required_skills_score`, `experience_score`, etc.).
+  * `candidate_evidence`: Stores supporting citation snippets with `skill`, `matched_bool`, `evidence_quote`, `document_name`, `page_number`.
+
+---
+
+### Core Business Services
+
+#### [NEW] [skill_normalizer.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/services/skill_normalizer.py)
+* Extensible skill normalization service:
+  * Canonical mapping dictionary (`ReactJS`/`React.js` $\rightarrow$ `React`, `Postgres`/`PostgreSQL DB` $\rightarrow$ `PostgreSQL`, `K8s` $\rightarrow$ `Kubernetes`, `NodeJS` $\rightarrow$ `Node.js`, `Amazon EC2`/`AWS EC2` $\rightarrow$ `AWS`).
+  * `normalize_skill(raw_skill: str) -> str`: Converts input skill to canonical form.
+  * `normalize_skill_list(skills: list[str]) -> list[str]`: Normalizes arrays of skills while preserving unique values.
+
+#### [NEW] [scoring_engine.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/services/scoring_engine.py)
+* Deterministic weighted scoring calculator:
+  * Configurable weights dictionary (`REQUIRED_SKILLS=0.40`, `EXPERIENCE=0.25`, `PROJECTS=0.15`, `PREFERRED_SKILLS=0.10`, `EDUCATION=0.05`, `DOMAIN=0.05`).
+  * `calculate_candidate_score(analysis_dict, jd_requirements) -> dict`:
+    * Computes individual component scores (0–100).
+    * Calculates weighted total score clamped to `[0, 100]`.
+    * Assigns fit category: `80-100` $\rightarrow$ **Strong Fit**, `60-79` $\rightarrow$ **Moderate Fit**, `0-59` $\rightarrow$ **Weak Fit**.
+
+#### [MODIFY] [hr_service.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/services/hr_service.py)
+* Refactor to support job isolation (`job_id`) and multi-factor evaluation:
+  * `parse_job_description(jd_text)`: Extracts structured JD schema (`title`, `required_skills`, `preferred_skills`, `min_experience_years`, `education`, `responsibilities`).
+  * `process_resume_batch(job_id, files)`: Batch processes candidate resumes independently; assigns `candidate_id` (`C001`, `C002`, ...); indexes chunks into ChromaDB and BM25 with `job_id` and `candidate_id` metadata.
+  * `retrieve_candidate_evidence(job_id, candidate_id, jd_requirements)`: Runs Hybrid BM25 + Chroma retrieval filtered by `job_id` & `candidate_id`, followed by FlashRank cross-encoder reranking to fetch top 5–10 evidence chunks.
+  * `analyze_candidate_with_llm(candidate_id, evidence_chunks, jd_requirements)`: Prompts Groq LLM to extract matched/missing skills, experience fit, and exact quotes without hallucinating.
+  * `evaluate_and_rank_job_candidates(job_id)`: Orchestrates evidence retrieval, LLM analysis, deterministic scoring, and DB persistence.
+
+---
+
+### API Endpoint Layer
+
+#### [MODIFY] [hr_endpoints.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/app/api/hr_endpoints.py)
+* Add job-scoped API routes protected by JWT auth (`get_current_user`):
+  * `POST /hr/jobs`: Creates a new candidate screening job.
+  * `POST /hr/jobs/{job_id}/upload-jd`: Uploads and parses Job Description.
+  * `POST /hr/jobs/{job_id}/upload-resumes`: Batch uploads candidate resumes.
+  * `POST /hr/jobs/{job_id}/analyze`: Triggers candidate analysis and deterministic scoring.
+  * `GET /hr/jobs/{job_id}/leaderboard`: Returns candidate rankings and leaderboard.
+  * `GET /hr/jobs/{job_id}/candidates/{candidate_id}`: Returns full candidate breakdown, score breakdown, and citation evidence.
+  * `POST /hr/jobs/{job_id}/chat`: Context-aware Q&A about candidates in the active job.
+  * Maintain legacy fallback wrappers (`/hr/upload-jd`, `/hr/upload-resumes`, `/hr/leaderboard`, `/hr/clear`).
+
+#### [MODIFY] [server.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/server.py)
+* Initialize `hr_db` tables on startup alongside user auth DB initialization.
+
+---
+
+### Frontend HR Dashboard
+
+#### [MODIFY] [index.html](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/static/index.html)
+* Add Navigation bar Mode Switcher: **"General RAG"** vs **"HR Candidate Matcher"**.
+* Build HR Workspace UI:
+  * **Job Selection Bar & Upload JD Panel**.
+  * **Batch Resume Upload Dropzone** with per-file status badges (`Processing`, `Success`, `Failed`).
+  * **Candidate Leaderboard Table**: Rank #, Candidate Name, Fit Badge (`Strong Fit`, `Moderate Fit`, `Weak Fit`), Match Score %, Matched Skills Chips, Missing Skills Chips, and Action buttons ("View Details & Citations").
+  * **Candidate Details & Citation Modal**: Displays breakdown bars (Skill Fit, Experience, Projects), matched/missing skills list, and exact quotes with file & page citations.
+
+#### [MODIFY] [style.css](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/static/style.css)
+* Add styles for HR workspace layout, candidate rank badges, progress bars, skill chips, and citation evidence blocks.
+
+#### [MODIFY] [app.js](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/static/app.js)
+* Implement mode switching, job management, batch upload progress rendering, leaderboard state management, candidate details modal rendering, and candidate chat prompts.
+
+---
+
+### Testing & Quality Assurance
+
+#### [NEW] [test_hr_matching.py](file:///c:/Users/MekaKishore/workspaces/RAG/rag_pro/tests/test_hr_matching.py)
+* Automated test suite covering Phase 1 criteria:
+  1. `test_strong_candidate()`: Validates score > 80 and "Strong Fit" rating.
+  2. `test_moderate_candidate()`: Validates score 60-79.
+  3. `test_weak_candidate()`: Validates score < 60 and "Weak Fit" rating.
+  4. `test_skill_normalization()`: Verifies `ReactJS` $\equiv$ `React`, `Postgres` $\equiv$ `PostgreSQL`, `K8s` $\equiv$ `Kubernetes`.
+  5. `test_missing_required_skills()`: Verifies mandatory skills missing are explicitly identified.
+  6. `test_evidence_citations()`: Verifies supporting quotes and page numbers are present.
+  7. `test_hallucination_protection()`: Ensures unmentioned skills (e.g. AWS) are never marked present.
+  8. `test_candidate_ranking_order()`: Strong Candidate $>$ Moderate Candidate $>$ Weak Candidate.
+  9. `test_multi_job_isolation()`: Candidates for Job A do not leak into Job B results.
+  10. `test_existing_rag_regression()`: Verifies original document upload & Q&A endpoints remain 100% functional.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+Execute pytest runner:
+```bash
+python -m unittest tests/test_hr_matching.py
+```
+
+### Manual Verification
+1. Open web application at `http://localhost:8002`.
+2. Login with user credentials and switch to **HR Candidate Matcher** mode.
+3. Create a Job: *"Senior Python Developer"*.
+4. Upload sample Job Description (`Senior_Python_JD.pdf`).
+5. Upload batch of 5 candidate resumes (3 strong fits, 1 moderate fit, 1 weak fit).
+6. Trigger **"Run Candidate Analysis"**.
+7. Confirm Leaderboard ranks candidates correctly with Fit Badges.
+8. Click **"View Details"** on Candidate #1 and verify citations (document name, page number, exact quote).
+9. Test HR Chat: *"Why is Candidate #1 ranked higher than Candidate #2?"*.

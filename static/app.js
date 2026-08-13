@@ -193,13 +193,28 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    /** Helper: Fetch wrapper that automatically attaches JWT Authorization header */
+    async function authFetch(url, options = {}) {
+        options.headers = options.headers || {};
+        if (accessToken) {
+            options.headers['Authorization'] = `Bearer ${accessToken}`;
+        }
+        const res = await fetch(url, options);
+        if (res.status === 401) {
+            handleUnauthorized();
+        }
+        return res;
+    }
+
     /** Handle 401 Unauthorized globally — log the user out and show modal */
     function handleUnauthorized() {
         accessToken = null;
         currentUsername = null;
         localStorage.removeItem('access_token');
         localStorage.removeItem('username');
-        addMessage('bot', '⚠️ Your session has expired. Please log in again.');
+        if (typeof addMessage === 'function') {
+            addMessage('bot', '⚠️ Your session has expired. Please log in again.');
+        }
         showAuthModal();
     }
 
@@ -723,14 +738,371 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 4. Utility Handlers
     clearChatBtn.addEventListener('click', () => {
-        // Keep only the first welcome message
         const welcome = chatMessages.querySelector('.welcome-msg');
         chatMessages.innerHTML = '';
         if (welcome) chatMessages.appendChild(welcome);
-        chatHistory = []; // Reset conversation memory
+        chatHistory = [];
     });
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  HR CANDIDATE MATCHER FRONTEND LOGIC
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    let activeJobId = "default_job_001";
+    let activeJDInfo = null;
+
+    window.switchAppMode = function(mode) {
+        const btnRag = document.getElementById('mode-rag');
+        const btnHr = document.getElementById('mode-hr');
+        const viewRag = document.getElementById('view-rag-chat');
+        const viewHr = document.getElementById('view-hr-matcher');
+        const title = document.getElementById('view-title');
+        const subtitle = document.getElementById('view-subtitle');
+
+        if (mode === 'hr') {
+            btnRag.classList.remove('active');
+            btnHr.classList.add('active');
+            viewRag.classList.add('hidden');
+            viewHr.classList.remove('hidden');
+            title.textContent = "AI HR Candidate Matcher";
+            subtitle.textContent = "Upload Job Description & candidate resumes for AI match ranking";
+            fetchHRLeaderboard();
+        } else {
+            btnHr.classList.remove('active');
+            btnRag.classList.add('active');
+            viewHr.classList.add('hidden');
+            viewRag.classList.remove('hidden');
+            title.textContent = "Knowledge Assistant";
+            subtitle.textContent = "Grounded in your uploaded playbooks and documentation";
+        }
+        lucide.createIcons();
+    };
+
+    // Helper to upload batch resumes
+    async function uploadResumesBatch(files) {
+        if (!files || files.length === 0) return;
+
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);
+        }
+
+        const statusEl = document.getElementById('resumes-upload-status');
+        if (statusEl) statusEl.textContent = `Uploading ${files.length} resume(s)...`;
+
+        try {
+            const res = await authFetch(`${API_BASE}/hr/jobs/${activeJobId}/upload-resumes`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok) {
+                if (statusEl) statusEl.textContent = `Uploaded ${data.total_files} candidate resume(s). Click 'Run AI Matching'.`;
+            } else {
+                if (statusEl) statusEl.textContent = `Error: ${data.detail || 'Upload failed'}`;
+            }
+        } catch (err) {
+            console.error("Batch resume upload error:", err);
+            if (statusEl) statusEl.textContent = `Batch upload failed: ${err.message || err}`;
+        }
+    }
+
+    function renderJDRequirements(jd) {
+        const box = document.getElementById('jd-requirements-chips');
+        if (!box || !jd) return;
+        box.innerHTML = '';
+
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'skill-chip';
+        titleSpan.style.borderColor = 'var(--accent)';
+        titleSpan.textContent = `Role: ${jd.title || 'Job Description'}`;
+        box.appendChild(titleSpan);
+
+        (jd.required_skills || []).forEach(s => {
+            const chip = document.createElement('span');
+            chip.className = 'skill-chip matched';
+            chip.textContent = `Req: ${s}`;
+            box.appendChild(chip);
+        });
+
+        (jd.preferred_skills || []).forEach(s => {
+            const chip = document.createElement('span');
+            chip.className = 'skill-chip';
+            chip.textContent = `Pref: ${s}`;
+            box.appendChild(chip);
+        });
+    }
+
+    // Helper to upload single JD
+    async function uploadJDSingle(file) {
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const statusEl = document.getElementById('active-jd-status');
+        if (statusEl) statusEl.textContent = `Uploading ${file.name}...`;
+
+        try {
+            const res = await authFetch(`${API_BASE}/hr/jobs/${activeJobId}/upload-jd`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok) {
+                activeJDInfo = data.jd_parsed;
+                if (statusEl) statusEl.textContent = `Active JD: ${data.filename}`;
+                renderJDRequirements(activeJDInfo);
+            } else {
+                if (statusEl) statusEl.textContent = `Error: ${data.detail || 'Upload failed'}`;
+            }
+        } catch (err) {
+            console.error("JD upload error:", err);
+            if (statusEl) statusEl.textContent = `Upload failed: ${err.message || err}`;
+        }
+    }
+
+    // JD File Input & Dropzone Listeners
+    const jdFileInput = document.getElementById('jd-file-input');
+    const jdDropzone = document.getElementById('jd-dropzone');
+    
+    if (jdFileInput) {
+        jdFileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                uploadJDSingle(e.target.files[0]);
+            }
+        });
+    }
+
+    if (jdDropzone) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            jdDropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                jdDropzone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            jdDropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                jdDropzone.classList.remove('dragover');
+            }, false);
+        });
+
+        jdDropzone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files[0]) {
+                uploadJDSingle(dt.files[0]);
+            }
+        });
+    }
+
+    // Resumes File Input & Dropzone Listeners
+    const resumesFileInput = document.getElementById('resumes-file-input');
+    const resumesDropzone = document.getElementById('resumes-dropzone');
+
+    if (resumesFileInput) {
+        resumesFileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                uploadResumesBatch(e.target.files);
+            }
+        });
+    }
+
+    if (resumesDropzone) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            resumesDropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                resumesDropzone.classList.add('dragover');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            resumesDropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                resumesDropzone.classList.remove('dragover');
+            }, false);
+        });
+
+        resumesDropzone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files.length > 0) {
+                uploadResumesBatch(dt.files);
+            }
+        });
+    }
+
+    // Trigger Candidate Evaluation
+    window.runHREvaluation = async function() {
+        const btn = document.getElementById('analyze-candidates-btn');
+        if (btn) btn.disabled = true;
+
+        const countBadge = document.getElementById('candidates-count');
+        if (countBadge) countBadge.textContent = "Analyzing candidates...";
+
+        try {
+            const res = await authFetch(`${API_BASE}/hr/jobs/${activeJobId}/analyze`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            if (res.ok) {
+                renderLeaderboard(data.leaderboard || []);
+            } else {
+                alert(`Evaluation failed: ${data.detail || 'Error'}`);
+            }
+        } catch (err) {
+            alert("Evaluation request failed.");
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    };
+
+    async function fetchHRLeaderboard() {
+        try {
+            const res = await authFetch(`${API_BASE}/hr/jobs/${activeJobId}/leaderboard`);
+            const data = await res.json();
+            if (res.ok) {
+                renderLeaderboard(data.candidates || []);
+            }
+        } catch (err) {
+            console.error("Error fetching leaderboard:", err);
+        }
+    }
+
+    function renderLeaderboard(candidates) {
+        const tbody = document.getElementById('leaderboard-body');
+        const countBadge = document.getElementById('candidates-count');
+
+        if (countBadge) countBadge.textContent = `${candidates.length} Candidates Scored`;
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        if (candidates.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="empty-table-msg">
+                        Upload a Job Description and candidate resumes above, then click <strong>Run AI Matching</strong>.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        candidates.forEach(cand => {
+            const tr = document.createElement('tr');
+
+            const fitClass = cand.fit === 'Strong Fit' ? 'strong-fit' : (cand.fit === 'Moderate Fit' ? 'moderate-fit' : 'weak-fit');
+            const profile = cand.profile || {};
+            const matchedSkills = (profile.matched_required_skills || []).map(s => `<span class="skill-chip matched">${s}</span>`).join(' ');
+            const missingSkills = (profile.missing_required_skills || []).map(s => `<span class="skill-chip missing">${s}</span>`).join(' ');
+
+            tr.innerHTML = `
+                <td><strong>#${cand.rank || 1}</strong></td>
+                <td>${cand.name || cand.filename}</td>
+                <td><strong>${cand.score}%</strong></td>
+                <td><span class="fit-badge ${fitClass}">${cand.fit || 'Pending'}</span></td>
+                <td><div class="skills-chip-box">${matchedSkills || 'None'}</div></td>
+                <td><div class="skills-chip-box">${missingSkills || 'None'}</div></td>
+                <td>
+                    <button class="action-btn-primary" style="padding: 4px 10px; font-size:0.75rem;" onclick="showCandidateDetails('${cand.candidate_id}')">
+                        View Details
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        lucide.createIcons();
+    }
+
+    window.showCandidateDetails = async function(candidateId) {
+        try {
+            const res = await authFetch(`${API_BASE}/hr/jobs/${activeJobId}/candidates/${candidateId}`);
+            const data = await res.json();
+            if (!res.ok) return;
+
+            document.getElementById('modal-candidate-name').textContent = data.profile.candidate_name || candidateId;
+            document.getElementById('modal-final-score').textContent = `${data.score}%`;
+            
+            const fitBadge = document.getElementById('modal-fit-badge');
+            fitBadge.textContent = data.fit;
+            fitBadge.className = `fit-badge ${data.fit === 'Strong Fit' ? 'strong-fit' : (data.fit === 'Moderate Fit' ? 'moderate-fit' : 'weak-fit')}`;
+
+            const metricsBox = document.getElementById('modal-breakdown-metrics');
+            const sb = data.score_breakdown || {};
+            metricsBox.innerHTML = `
+                <p><strong>Required Skills Fit:</strong> ${sb.required_skills_score || 0}%</p>
+                <p><strong>Experience Score:</strong> ${sb.experience_score || 0}%</p>
+                <p><strong>Project Relevance:</strong> ${sb.project_score || 0}%</p>
+                <p><strong>Preferred Skills Fit:</strong> ${sb.preferred_skills_score || 0}%</p>
+            `;
+
+            const evidenceBox = document.getElementById('modal-evidence-list');
+            evidenceBox.innerHTML = '';
+            (data.evidence || []).forEach(ev => {
+                const div = document.createElement('div');
+                div.className = 'evidence-quote-box';
+                div.innerHTML = `
+                    <strong>Skill: ${ev.skill}</strong> (${ev.matched ? '✓ Matched' : '❌ Missing'})<br>
+                    <em>"${ev.evidence_quote || 'Evidence extracted from resume'}"</em><br>
+                    <small style="color: var(--text-secondary)">Source: ${ev.document || 'Resume'}, Page ${ev.page || 1}</small>
+                `;
+                evidenceBox.appendChild(div);
+            });
+
+            document.getElementById('candidate-modal').classList.remove('hidden');
+        } catch (err) {
+            console.error("Error fetching candidate details:", err);
+        }
+    };
+
+    window.closeCandidateModal = function() {
+        document.getElementById('candidate-modal').classList.add('hidden');
+    };
+
+    window.clearHRSession = async function() {
+        if (!confirm("Are you sure you want to clear all candidate records, JD data, and reset the leaderboard?")) {
+            return;
+        }
+
+        try {
+            let res = await authFetch(`${API_BASE}/hr/jobs/${activeJobId}/clear`, {
+                method: 'POST'
+            });
+
+            if (res.status === 404) {
+                // Fallback to legacy clear route if job-specific clear route is not found
+                res = await authFetch(`${API_BASE}/hr/clear`, {
+                    method: 'POST'
+                });
+            }
+
+            const data = await res.json();
+            if (res.ok) {
+                activeJDInfo = null;
+                const activeJDEl = document.getElementById('active-jd-status');
+                if (activeJDEl) activeJDEl.textContent = "Upload active job description";
+
+                const resumesStatusEl = document.getElementById('resumes-upload-status');
+                if (resumesStatusEl) resumesStatusEl.textContent = "Upload candidate resumes (PDF, DOCX)";
+
+                const chipsBox = document.getElementById('jd-requirements-chips');
+                if (chipsBox) chipsBox.innerHTML = '';
+
+                renderLeaderboard([]);
+                alert("HR screening session and candidate data cleared successfully.");
+            } else {
+                alert(`Clear failed: ${data.detail || 'Error'}`);
+            }
+        } catch (err) {
+            console.error("Error clearing HR session:", err);
+            alert("Failed to clear session.");
+        }
+    };
+
     // ─── Boot ─────────────────────────────────────────────────────────────
-    // Check auth state immediately on page load
     checkAuthState();
 });
