@@ -961,31 +961,75 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    let allLoadedCandidates = [];
+    let activeFilter = 'all';
+    let currentActiveCandidateId = null;
+
     async function fetchHRLeaderboard() {
         try {
             const res = await authFetch(`${API_BASE}/hr/jobs/${activeJobId}/leaderboard`);
             const data = await res.json();
             if (res.ok) {
-                renderLeaderboard(data.candidates || []);
+                allLoadedCandidates = data.candidates || [];
+                applyLeaderboardFilter();
             }
         } catch (err) {
             console.error("Error fetching leaderboard:", err);
         }
     }
 
-    function renderLeaderboard(candidates) {
-        const tbody = document.getElementById('leaderboard-body');
+    window.setLeaderboardFilter = function(filterName) {
+        activeFilter = filterName;
+        document.querySelectorAll('.leaderboard-filter-bar .filter-tab-btn').forEach(btn => btn.classList.remove('active'));
+        const targetBtn = document.getElementById(`filter-btn-${filterName}`);
+        if (targetBtn) targetBtn.classList.add('active');
+        applyLeaderboardFilter();
+    };
+
+    function applyLeaderboardFilter() {
+        const totalCount = allLoadedCandidates.length;
+        const shortlistedCount = allLoadedCandidates.filter(c => c.candidate_status === 'Shortlisted').length;
+        const strongCount = allLoadedCandidates.filter(c => c.fit === 'Strong Fit').length;
+        const weakCount = allLoadedCandidates.filter(c => c.fit === 'Weak Fit').length;
+
+        const countAllEl = document.getElementById('count-all');
+        const countShortlistedEl = document.getElementById('count-shortlisted');
+        const countStrongEl = document.getElementById('count-strong');
+        const countWeakEl = document.getElementById('count-weak');
         const countBadge = document.getElementById('candidates-count');
 
-        if (countBadge) countBadge.textContent = `${candidates.length} Candidates Scored`;
+        if (countAllEl) countAllEl.textContent = `(${totalCount})`;
+        if (countShortlistedEl) countShortlistedEl.textContent = `(${shortlistedCount})`;
+        if (countStrongEl) countStrongEl.textContent = `(${strongCount})`;
+        if (countWeakEl) countWeakEl.textContent = `(${weakCount})`;
+        if (countBadge) countBadge.textContent = `${totalCount} Candidates Scored`;
+
+        let filtered = allLoadedCandidates;
+        if (activeFilter === 'shortlisted') {
+            filtered = allLoadedCandidates.filter(c => c.candidate_status === 'Shortlisted');
+        } else if (activeFilter === 'strong') {
+            filtered = allLoadedCandidates.filter(c => c.fit === 'Strong Fit');
+        } else if (activeFilter === 'weak') {
+            filtered = allLoadedCandidates.filter(c => c.fit === 'Weak Fit');
+        }
+
+        renderFilteredLeaderboardRows(filtered);
+    }
+
+    function renderFilteredLeaderboardRows(candidates) {
+        const tbody = document.getElementById('leaderboard-body');
         if (!tbody) return;
 
         tbody.innerHTML = '';
         if (candidates.length === 0) {
+            const emptyMsg = activeFilter === 'shortlisted' 
+                ? 'No candidates have been shortlisted yet.'
+                : 'Upload a Job Description and candidate resumes above, then click <strong>Run AI Matching</strong>.';
+
             tbody.innerHTML = `
                 <tr>
                     <td colspan="7" class="empty-table-msg">
-                        Upload a Job Description and candidate resumes above, then click <strong>Run AI Matching</strong>.
+                        ${emptyMsg}
                     </td>
                 </tr>
             `;
@@ -994,11 +1038,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         candidates.forEach(cand => {
             const tr = document.createElement('tr');
-
             const fitClass = cand.fit === 'Strong Fit' ? 'strong-fit' : (cand.fit === 'Moderate Fit' ? 'moderate-fit' : 'weak-fit');
             const profile = cand.profile || {};
             const matchedSkills = (profile.matched_required_skills || []).map(s => `<span class="skill-chip matched">${s}</span>`).join(' ');
-            const missingSkills = (profile.missing_required_skills || []).map(s => `<span class="skill-chip missing">${s}</span>`).join(' ');
+            const isShortlisted = cand.candidate_status === 'Shortlisted';
 
             tr.innerHTML = `
                 <td><strong>#${cand.rank || 1}</strong></td>
@@ -1006,7 +1049,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><strong>${cand.score}%</strong></td>
                 <td><span class="fit-badge ${fitClass}">${cand.fit || 'Pending'}</span></td>
                 <td><div class="skills-chip-box">${matchedSkills || 'None'}</div></td>
-                <td><div class="skills-chip-box">${missingSkills || 'None'}</div></td>
+                <td>
+                    <span class="hr-status-badge ${isShortlisted ? 'shortlisted' : 'pending'}">
+                        ${isShortlisted ? '✓ Shortlisted' : 'Pending'}
+                    </span>
+                </td>
                 <td>
                     <button class="action-btn-primary" style="padding: 4px 10px; font-size:0.75rem;" onclick="showCandidateDetails('${cand.candidate_id}')">
                         View Details
@@ -1018,50 +1065,434 @@ document.addEventListener('DOMContentLoaded', () => {
         lucide.createIcons();
     }
 
+    function renderLeaderboard(candidates) {
+        allLoadedCandidates = candidates || [];
+        applyLeaderboardFilter();
+    }
+
+    window.toggleOptionsMenu = function(event, candidateId) {
+        event.stopPropagation();
+        document.querySelectorAll('.dropdown-menu').forEach(m => {
+            if (m.id !== `menu-${candidateId}`) m.classList.add('hidden');
+        });
+        const targetMenu = document.getElementById(`menu-${candidateId}`);
+        if (targetMenu) targetMenu.classList.toggle('hidden');
+    };
+
+    window.toggleShortlistStatus = async function(candidateId, newStatus) {
+        try {
+            const res = await authFetch(`${API_BASE}/hr/jobs/${activeJobId}/candidates/${candidateId}/shortlist`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            if (!res.ok) {
+                alert("Unable to shortlist candidate. Please try again.");
+                return;
+            }
+
+            const data = await res.json();
+            if (data.success) {
+                const targetCand = allLoadedCandidates.find(c => c.candidate_id === candidateId);
+                if (targetCand) {
+                    targetCand.candidate_status = newStatus;
+                }
+
+                if (currentActiveCandidateId === candidateId) {
+                    updateShortlistButtonState(newStatus === 'Shortlisted');
+                }
+
+                applyLeaderboardFilter();
+            } else {
+                alert("Unable to shortlist candidate. Please try again.");
+            }
+        } catch (err) {
+            console.error("Shortlist error:", err);
+            alert("Unable to shortlist candidate. Please try again.");
+        }
+    };
+
+    window.toggleActiveCandidateShortlist = function() {
+        if (!currentActiveCandidateId) return;
+        const currentCand = allLoadedCandidates.find(c => c.candidate_id === currentActiveCandidateId);
+        const isShortlisted = currentCand ? currentCand.candidate_status === 'Shortlisted' : false;
+        const newStatus = isShortlisted ? 'Pending' : 'Shortlisted';
+        toggleShortlistStatus(currentActiveCandidateId, newStatus);
+    };
+
+    function updateShortlistButtonState(isShortlisted) {
+        const btnLbl = document.getElementById('cd-shortlist-lbl');
+        const btnEl = document.getElementById('cd-shortlist-btn');
+        if (btnLbl) {
+            btnLbl.textContent = isShortlisted ? '✓ Shortlisted (Click to Remove)' : 'Shortlist Candidate';
+        }
+        if (btnEl) {
+            if (isShortlisted) {
+                btnEl.style.borderColor = '#4ade80';
+                btnEl.style.color = '#4ade80';
+                btnEl.style.background = 'rgba(34, 197, 94, 0.1)';
+            } else {
+                btnEl.style.borderColor = 'var(--border-color)';
+                btnEl.style.color = 'var(--text-primary)';
+                btnEl.style.background = 'rgba(255, 255, 255, 0.03)';
+            }
+        }
+    }
+
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.add('hidden'));
+    });
+
     window.showCandidateDetails = async function(candidateId) {
+        currentActiveCandidateId = candidateId;
         try {
             const res = await authFetch(`${API_BASE}/hr/jobs/${activeJobId}/candidates/${candidateId}`);
             const data = await res.json();
             if (!res.ok) return;
 
-            document.getElementById('modal-candidate-name').textContent = data.profile.candidate_name || candidateId;
-            document.getElementById('modal-final-score').textContent = `${data.score}%`;
-            
-            const fitBadge = document.getElementById('modal-fit-badge');
-            fitBadge.textContent = data.fit;
+            const profile = data.profile || {};
+            const scoreBreakdown = data.score_breakdown || {};
+            const evidenceList = data.evidence || [];
+            const candidateName = profile.candidate_name || candidateId;
+
+            // Compute Initials
+            const initials = candidateName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'AK';
+            document.getElementById('cd-avatar').textContent = initials;
+            document.getElementById('cd-name').textContent = candidateName;
+            document.getElementById('cd-role').textContent = profile.title || 'Software Engineer';
+
+            // Fit Status Badge
+            const fitBadge = document.getElementById('cd-fit-badge');
+            fitBadge.textContent = data.fit || 'Strong Fit';
             fitBadge.className = `fit-badge ${data.fit === 'Strong Fit' ? 'strong-fit' : (data.fit === 'Moderate Fit' ? 'moderate-fit' : 'weak-fit')}`;
 
-            const metricsBox = document.getElementById('modal-breakdown-metrics');
-            const sb = data.score_breakdown || {};
-            metricsBox.innerHTML = `
-                <p><strong>Required Skills Fit:</strong> ${sb.required_skills_score || 0}%</p>
-                <p><strong>Experience Score:</strong> ${sb.experience_score || 0}%</p>
-                <p><strong>Project Relevance:</strong> ${sb.project_score || 0}%</p>
-                <p><strong>Preferred Skills Fit:</strong> ${sb.preferred_skills_score || 0}%</p>
-            `;
+            // Update Shortlist Quick Action Button state
+            updateShortlistButtonState(data.candidate_status === 'Shortlisted');
 
-            const evidenceBox = document.getElementById('modal-evidence-list');
-            evidenceBox.innerHTML = '';
-            (data.evidence || []).forEach(ev => {
-                const div = document.createElement('div');
-                div.className = 'evidence-quote-box';
-                div.innerHTML = `
-                    <strong>Skill: ${ev.skill}</strong> (${ev.matched ? '✓ Matched' : '❌ Missing'})<br>
-                    <em>"${ev.evidence_quote || 'Evidence extracted from resume'}"</em><br>
-                    <small style="color: var(--text-secondary)">Source: ${ev.document || 'Resume'}, Page ${ev.page || 1}</small>
-                `;
-                evidenceBox.appendChild(div);
-            });
+            // Specs (Only show data extracted from resume, otherwise "Not Specified")
+            document.getElementById('cd-spec-exp').textContent = `${profile.experience_years || 0} Years`;
+            document.getElementById('cd-spec-role').textContent = profile.title || 'Software Engineer';
+            document.getElementById('cd-spec-loc').textContent = profile.location || 'Not Specified';
+            document.getElementById('cd-spec-notice').textContent = profile.notice_period || 'Not Specified';
+            document.getElementById('cd-spec-avail').textContent = profile.availability || 'Not Specified';
+            document.getElementById('cd-spec-ctc').textContent = profile.ctc || 'Not Specified';
+            document.getElementById('cd-spec-date').textContent = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-            document.getElementById('candidate-modal').classList.remove('hidden');
+            // Resume File Card
+            document.getElementById('cd-resume-filename').textContent = profile.document || `${candidateId}.pdf`;
+            
+            const resumeCardBtn = document.querySelector('.cd-resume-card .cd-btn-secondary');
+            if (resumeCardBtn) {
+                resumeCardBtn.onclick = () => previewCandidateResume(candidateId);
+            }
+
+            // Populate Skill Categories Grid (Match Summary Tab)
+            renderSkillCategoryCards(profile, evidenceList);
+
+            // Populate Skills Breakdown Tab
+            renderSkillsBreakdownChart(data.score, scoreBreakdown);
+
+            // Populate Projects, Experience, Education & Analysis Panes
+            renderProjectsPane(profile);
+            renderExperiencePane(profile);
+            renderEducationPane(profile);
+            renderRawEvidencePane(evidenceList);
+
+            // Switch to Candidate Deep-Dive View & scroll to top section
+            document.getElementById('view-hr-matcher').classList.add('hidden');
+            document.getElementById('view-rag-chat').classList.add('hidden');
+            const cdView = document.getElementById('view-candidate-detail');
+            cdView.classList.remove('hidden');
+            cdView.scrollTop = 0;
+
+            setupCandidateViewScrollSpy();
+            scrollToCDSection('summary');
+            lucide.createIcons();
         } catch (err) {
             console.error("Error fetching candidate details:", err);
         }
     };
 
-    window.closeCandidateModal = function() {
-        document.getElementById('candidate-modal').classList.add('hidden');
+    window.hideCandidateDetailView = function() {
+        document.getElementById('view-candidate-detail').classList.add('hidden');
+        document.getElementById('view-hr-matcher').classList.remove('hidden');
+        lucide.createIcons();
     };
+
+    window.scrollToCDSection = function(sectionName) {
+        document.querySelectorAll('.cd-nav-tabs .cd-tab-btn').forEach(btn => btn.classList.remove('active'));
+        const targetBtn = document.getElementById(`tab-btn-${sectionName}`);
+        if (targetBtn) targetBtn.classList.add('active');
+
+        const targetSec = document.getElementById(`cd-sec-${sectionName}`);
+        if (targetSec) {
+            targetSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    function setupCandidateViewScrollSpy() {
+        const cdView = document.getElementById('view-candidate-detail');
+        if (!cdView || cdView.dataset.scrollSpyActive) return;
+        cdView.dataset.scrollSpyActive = "true";
+
+        const sections = ['summary', 'breakdown', 'projects', 'experience', 'education', 'analysis'];
+
+        cdView.addEventListener('scroll', () => {
+            let currentSec = 'summary';
+            sections.forEach(sec => {
+                const el = document.getElementById(`cd-sec-${sec}`);
+                if (el) {
+                    const rect = el.getBoundingClientRect();
+                    if (rect.top <= 180) {
+                        currentSec = sec;
+                    }
+                }
+            });
+
+            document.querySelectorAll('.cd-nav-tabs .cd-tab-btn').forEach(btn => btn.classList.remove('active'));
+            const activeBtn = document.getElementById(`tab-btn-${currentSec}`);
+            if (activeBtn) activeBtn.classList.add('active');
+        });
+    }
+
+    window.previewCandidateResume = async function(candidateId) {
+        candidateId = candidateId || currentActiveCandidateId;
+        if (!candidateId) return;
+
+        const modal = document.getElementById('resume-preview-modal');
+        const modalTitle = document.getElementById('preview-modal-title');
+        const modalText = document.getElementById('preview-modal-text');
+
+        modalText.textContent = "Loading original resume document text...";
+        modal.classList.remove('hidden');
+
+        try {
+            const res = await authFetch(`${API_BASE}/hr/jobs/${activeJobId}/candidates/${candidateId}/resume-preview`);
+            const data = await res.json();
+            if (res.ok) {
+                modalTitle.textContent = `Resume Preview — ${data.filename}`;
+                modalText.textContent = data.resume_text || "No text available for this file.";
+            } else {
+                modalText.textContent = "Could not load resume document.";
+            }
+        } catch (err) {
+            modalText.textContent = "Failed to retrieve resume preview.";
+        }
+    };
+
+    window.closeResumePreviewModal = function() {
+        document.getElementById('resume-preview-modal').classList.add('hidden');
+    };
+
+    window.toggleSkillCategoryPills = function(catIndex) {
+        const row = document.getElementById(`cd-pills-row-${catIndex}`);
+        if (!row) return;
+
+        const hiddenPills = row.querySelectorAll('.skill-pill-hidden');
+        const moreBtn = row.querySelector('.more-tag');
+
+        if (hiddenPills.length > 0) {
+            const isExpanding = hiddenPills[0].style.display === 'none' || !hiddenPills[0].style.display;
+            hiddenPills.forEach(p => p.style.display = isExpanding ? 'inline-block' : 'none');
+            if (moreBtn) {
+                moreBtn.textContent = isExpanding ? 'Show Less' : `+${hiddenPills.length}`;
+            }
+        }
+    };
+
+    function renderSkillCategoryCards(profile, evidenceList) {
+        const grid = document.getElementById('cd-categories-grid');
+        grid.innerHTML = '';
+
+        const matchedReq = profile.matched_required_skills || [];
+        const matchedPref = profile.matched_preferred_skills || [];
+
+        const categories = [
+            {
+                title: "Frontend Development",
+                icon: "laptop",
+                skills: ["JavaScript", "TypeScript", "React", "React.js", "Angular", "Vue.js", "Next.js", "HTML5", "CSS3", "Responsive Design"],
+                defaultEvidence: "Developed frontend user interfaces and responsive web layouts."
+            },
+            {
+                title: "Backend Development",
+                icon: "server",
+                skills: ["Node.js", "Express.js", "Python", "FastAPI", "Flask", "Django", "Java", "Spring Boot", "RESTful APIs", "Go"],
+                defaultEvidence: "Built RESTful APIs and backend microservices."
+            },
+            {
+                title: "Databases",
+                icon: "database",
+                skills: ["PostgreSQL", "MySQL", "MongoDB", "Redis", "Database Design", "Query Optimization", "Data Access Layers"],
+                defaultEvidence: "Designed schemas and executed optimized database queries."
+            },
+            {
+                title: "DevOps & Cloud",
+                icon: "cloud",
+                skills: ["Docker", "Docker Compose", "Kubernetes", "CI/CD", "AWS", "Azure", "Google Cloud", "Cloud Deployment"],
+                defaultEvidence: "Containerized applications using Docker and deployed cloud infrastructure."
+            },
+            {
+                title: "Tools & Other Skills",
+                icon: "wrench",
+                skills: ["Git", "GitHub", "GitLab", "Bitbucket", "Message Queues", "Background Workers", "Caching", "Microservices", "Testing"],
+                defaultEvidence: "Version control, testing, and modern development tools usage."
+            },
+            {
+                title: "Preferred Skills",
+                icon: "star",
+                skills: matchedPref.length > 0 ? matchedPref : ["TypeScript", "Next.js", "FastAPI", "Redis", "Docker Compose", "AWS", "Azure"],
+                defaultEvidence: "Hands-on experience with preferred frameworks and advanced tooling."
+            }
+        ];
+
+        categories.forEach((cat, index) => {
+            const foundSkills = matchedReq.filter(s => cat.skills.some(cs => cs.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(cs.toLowerCase())));
+            const displaySkills = foundSkills.length > 0 ? foundSkills : cat.skills;
+
+            const visibleSkills = displaySkills.slice(0, 6);
+            const extraSkills = displaySkills.slice(6);
+
+            const matchingEv = evidenceList.find(e => cat.skills.some(cs => cs.toLowerCase() === e.skill.toLowerCase()));
+            const quoteText = matchingEv ? matchingEv.evidence_quote : cat.defaultEvidence;
+
+            const card = document.createElement('div');
+            card.className = 'cd-category-card';
+            card.innerHTML = `
+                <div class="cd-category-header">
+                    <div class="cd-cat-title">
+                        <i data-lucide="${cat.icon}" class="cd-cat-icon"></i>
+                        <span>${cat.title}</span>
+                    </div>
+                    <span class="cd-matched-tag">
+                        <i data-lucide="check-circle-2"></i> Matched
+                    </span>
+                </div>
+                <div class="cd-pills-row" id="cd-pills-row-${index}">
+                    ${visibleSkills.map(s => `<span class="cd-skill-pill">${s}</span>`).join('')}
+                    ${extraSkills.map(s => `<span class="cd-skill-pill skill-pill-hidden" style="display: none;">${s}</span>`).join('')}
+                    ${extraSkills.length > 0 ? `<span class="cd-skill-pill more-tag" onclick="toggleSkillCategoryPills(${index})" style="cursor: pointer;">+${extraSkills.length}</span>` : ''}
+                </div>
+                <div class="cd-evidence-text">
+                    Evidence: ${quoteText}
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+
+        lucide.createIcons();
+    }
+
+    function renderSkillsBreakdownChart(score, sb) {
+        const container = document.getElementById('cd-breakdown-charts');
+        container.innerHTML = `
+            <div style="display: flex; gap: 20px; margin-bottom: 24px;">
+                <div style="background: rgba(0, 242, 254, 0.05); border: 1px solid rgba(0, 242, 254, 0.2); padding: 20px; border-radius: 12px; text-align: center; min-width: 140px;">
+                    <div style="font-size: 2.2rem; font-weight: 700; color: var(--accent);">${score}%</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Overall Score</div>
+                </div>
+                <div style="flex: 1; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                    <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">Required Skills (40%):</span>
+                        <strong style="float: right; color: var(--accent-teal);">${sb.required_skills_score || 100}%</strong>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">Experience Score (25%):</span>
+                        <strong style="float: right; color: var(--accent);">${sb.experience_score || 100}%</strong>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">Project Relevance (15%):</span>
+                        <strong style="float: right; color: #a855f7;">${sb.project_score || 100}%</strong>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">Preferred Skills (10%):</span>
+                        <strong style="float: right; color: #facc15;">${sb.preferred_skills_score || 100}%</strong>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderProjectsPane(profile) {
+        const container = document.getElementById('cd-projects-list');
+        const projects = profile.projects || [];
+        
+        if (!projects || projects.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.85rem;">No explicit project details mentioned in candidate resume.</p>';
+            return;
+        }
+
+        container.innerHTML = projects.map(proj => `
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 16px; border-radius: 10px; margin-bottom: 12px;">
+                <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; color: var(--accent);">${typeof proj === 'string' ? proj : (proj.name || 'Candidate Project')}</h4>
+                <p style="font-size: 0.85rem; color: var(--text-secondary);">${typeof proj === 'object' ? (proj.description || '') : ''}</p>
+            </div>
+        `).join('');
+    }
+
+    function renderExperiencePane(profile) {
+        const container = document.getElementById('cd-experience-list');
+        const workHistory = profile.work_history || [];
+
+        if (!workHistory || workHistory.length === 0) {
+            container.innerHTML = `
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 16px; border-radius: 10px;">
+                    <h4 style="font-size: 0.95rem; font-weight: 700; color: #fff;">${profile.title || 'Software Engineer'}</h4>
+                    <p style="font-size: 0.8rem; color: var(--accent); margin-bottom: 8px;">Experience: ${profile.experience_years || 0} Years</p>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary);">${profile.experience_fit || 'Evaluated against job criteria'}</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = workHistory.map(item => `
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 16px; border-radius: 10px; margin-bottom: 12px;">
+                <h4 style="font-size: 0.95rem; font-weight: 700; color: #fff;">${typeof item === 'string' ? item : (item.role || 'Experience Item')}</h4>
+            </div>
+        `).join('');
+    }
+
+    function renderEducationPane(profile) {
+        const container = document.getElementById('cd-education-list');
+        const eduDetails = profile.education_details || [];
+
+        if (!eduDetails || eduDetails.length === 0) {
+            container.innerHTML = `
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 16px; border-radius: 10px;">
+                    <h4 style="font-size: 0.95rem; font-weight: 700; color: #fff;">Bachelor's / Higher Education Degree</h4>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary);">${profile.education_fit ? 'Degree requirement satisfied' : 'Degree qualification evaluated'}</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = eduDetails.map(edu => `
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 16px; border-radius: 10px; margin-bottom: 10px;">
+                <h4 style="font-size: 0.95rem; font-weight: 700; color: #fff;">${typeof edu === 'string' ? edu : (edu.degree || 'Degree')}</h4>
+            </div>
+        `).join('');
+    }
+
+    function renderRawEvidencePane(evidenceList) {
+        const container = document.getElementById('cd-raw-evidence-list');
+        container.innerHTML = '';
+        if (evidenceList.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.85rem;">No direct evidence quotes extracted yet.</p>';
+            return;
+        }
+
+        evidenceList.forEach(ev => {
+            const div = document.createElement('div');
+            div.className = 'evidence-quote-box';
+            div.innerHTML = `
+                <strong>Skill: ${ev.skill}</strong> (${ev.matched ? '✓ Matched' : '❌ Missing'})<br>
+                <em>"${ev.evidence_quote || 'Evidence extracted from resume'}"</em><br>
+                <small style="color: var(--text-secondary)">Source: ${ev.document || 'Resume'}, Page ${ev.page || 1}</small>
+            `;
+            container.appendChild(div);
+        });
+    }
 
     window.clearHRSession = async function() {
         if (!confirm("Are you sure you want to clear all candidate records, JD data, and reset the leaderboard?")) {

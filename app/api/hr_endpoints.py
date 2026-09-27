@@ -1,25 +1,17 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from pydantic import BaseModel
 import os
 import uuid
 import shutil
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 
+from app.schemas.hr_schemas import JobCreateRequest, HRChatRequest, CandidateShortlistRequest
 from app.services import hr_service
-from app.services import rag_service
 from app.loaders.loader_factory import LOADER_MAPPING
 from app.db import hr_db
 from app.utils.logger import logger
 from app.api.deps import get_current_user
 
 router = APIRouter()
-
 DEFAULT_JOB_ID = "default_job_001"
-
-class JobCreateRequest(BaseModel):
-    title: str
-
-class ChatRequest(BaseModel):
-    prompt: str
 
 @router.post("/jobs")
 async def create_job(request: JobCreateRequest, current_user: dict = Depends(get_current_user)):
@@ -45,7 +37,6 @@ async def upload_job_description(
             detail=f"Unsupported file extension '{ext}'. Supported: {', '.join(LOADER_MAPPING.keys())}"
         )
         
-    # Ensure job container exists
     job = hr_db.get_job(job_id)
     if not job:
         hr_db.create_job(job_id=job_id, user_id=current_user.get("id"), title="Candidate Screening Role")
@@ -58,7 +49,6 @@ async def upload_job_description(
         jd_text = hr_service.extract_text_from_file(jd_path)
         jd_parsed = hr_service.parse_job_description(jd_text, file_name)
         
-        # Save to DB
         job_title = jd_parsed.get("title", file_name)
         hr_db.create_job(job_id=job_id, user_id=current_user.get("id"), title=job_title, jd_filename=file_name, jd_parsed=jd_parsed)
         
@@ -78,8 +68,7 @@ async def upload_batch_resumes(
     files: list[UploadFile] = File(...),
     current_user: dict = Depends(get_current_user)
 ):
-    """Batch uploads candidate resumes for a specific job with fault-tolerant processing."""
-    # Ensure job container exists
+    """Batch uploads candidate resumes for a specific job."""
     job = hr_db.get_job(job_id)
     if not job:
         hr_db.create_job(job_id=job_id, user_id=current_user.get("id"), title="Candidate Screening Role")
@@ -137,14 +126,39 @@ async def get_job_leaderboard(job_id: str, current_user: dict = Depends(get_curr
         "candidates": leaderboard
     }
 
+@router.post("/jobs/{job_id}/candidates/{candidate_id}/shortlist")
+async def toggle_candidate_shortlist(
+    job_id: str,
+    candidate_id: str,
+    req: CandidateShortlistRequest = CandidateShortlistRequest(status="Shortlisted"),
+    current_user: dict = Depends(get_current_user)
+):
+    """Updates candidate shortlist status (Pending or Shortlisted) scoped to job_id."""
+    status_to_set = req.status if req and req.status else "Shortlisted"
+    if status_to_set not in ["Pending", "Shortlisted"]:
+        raise HTTPException(status_code=400, detail="Invalid status. Must be 'Pending' or 'Shortlisted'.")
+
+    res = hr_db.update_candidate_shortlist_status(job_id, candidate_id, status_to_set)
+    if not res:
+        raise HTTPException(status_code=404, detail=f"Candidate '{candidate_id}' not found for job '{job_id}'.")
+
+    return {
+        "success": True,
+        "candidate_id": candidate_id,
+        "job_id": job_id,
+        "status": status_to_set
+    }
+
 @router.get("/jobs/{job_id}/candidates/{candidate_id}")
 async def get_candidate_details(job_id: str, candidate_id: str, current_user: dict = Depends(get_current_user)):
     """Fetches candidate profile, score breakdown, and supporting citations evidence."""
     score_data = hr_db.get_candidate_score(candidate_id)
     profile_data = hr_db.get_candidate_profile(candidate_id)
     evidence_items = hr_db.get_candidate_evidence(candidate_id)
+    cands = hr_db.get_job_candidates(job_id)
+    cand = next((c for c in cands if c["candidate_id"] == candidate_id), None)
     
-    if not profile_data and not score_data:
+    if not profile_data and not score_data and not cand:
         raise HTTPException(status_code=404, detail=f"Candidate '{candidate_id}' not found.")
         
     return {
@@ -152,13 +166,37 @@ async def get_candidate_details(job_id: str, candidate_id: str, current_user: di
         "job_id": job_id,
         "score": score_data.get("final_score", 0.0) if score_data else 0.0,
         "fit": score_data.get("fit_category", "Pending") if score_data else "Pending",
+        "candidate_status": cand.get("candidate_status", "Pending") if cand else "Pending",
         "score_breakdown": score_data.get("score_breakdown", {}) if score_data else {},
         "profile": profile_data or {},
         "evidence": evidence_items
     }
 
+@router.get("/jobs/{job_id}/candidates/{candidate_id}/resume-preview")
+async def preview_candidate_resume(job_id: str, candidate_id: str, current_user: dict = Depends(get_current_user)):
+    """Fetches raw extracted text from the candidate resume document for live preview."""
+    cands = hr_db.get_job_candidates(job_id)
+    cand = next((c for c in cands if c["candidate_id"] == candidate_id), None)
+    
+    filename = cand["filename"] if cand else f"{candidate_id}.pdf"
+    file_path = os.path.join(hr_service.RESUME_DIR, f"{job_id}_{candidate_id}_{filename}")
+    
+    if not os.path.exists(file_path):
+        # Try finding by candidate_id in filename
+        for f in os.listdir(hr_service.RESUME_DIR):
+            if candidate_id in f:
+                file_path = os.path.join(hr_service.RESUME_DIR, f)
+                break
+
+    text = hr_service.extract_text_from_file(file_path) if os.path.exists(file_path) else "Resume text unavailable."
+    return {
+        "candidate_id": candidate_id,
+        "filename": filename,
+        "resume_text": text
+    }
+
 @router.post("/jobs/{job_id}/chat")
-async def chat_about_job_candidates(job_id: str, req: ChatRequest, current_user: dict = Depends(get_current_user)):
+async def chat_about_job_candidates(job_id: str, req: HRChatRequest, current_user: dict = Depends(get_current_user)):
     """Handles HR questions about candidate comparisons and skill queries."""
     leaderboard = hr_db.get_job_leaderboard(job_id)
     job = hr_db.get_job(job_id)
@@ -173,7 +211,7 @@ async def chat_about_job_candidates(job_id: str, req: ChatRequest, current_user:
         context_summary += f"  Missing Skills: {', '.join(c.get('profile', {}).get('missing_required_skills', []))}\n\n"
         
     prompt = f"You are an HR Assistant. Answer the HR question accurately based on candidate leaderboard data.\n\nContext:\n{context_summary}\n\nQuestion: {req.prompt}\n\nAnswer:"
-    response = rag_service.llm.invoke(prompt)
+    response = hr_service.jd_parser_service.llm.invoke(prompt)
     return {"response": response.content}
 
 @router.post("/jobs/{job_id}/clear")

@@ -158,7 +158,7 @@
                 </div>
                 <div class="powered-by">
                     <i data-lucide="zap"></i>
-                    <span>Powered by Llama-3.1 & Chroma</span>
+                    <span>Powered by Llama-3.3 & Chroma</span>
                 </div>
             </div>
         </aside>
@@ -190,9 +190,7 @@
 
             <!-- GENERAL RAG CHAT VIEW -->
             <div id="view-rag-chat" class="app-view">
-                <!-- Chat Message Feed -->
                 <div class="chat-feed" id="chat-messages">
-                    <!-- Welcome Message -->
                     <div class="message bot-message welcome-msg">
                         <div class="message-avatar">
                             <i data-lucide="bot"></i>
@@ -203,7 +201,6 @@
                     </div>
                 </div>
 
-                <!-- Input Bar -->
                 <footer class="chat-input-area">
                     <form class="input-form" id="chat-form">
                         <input type="text" id="query-input" placeholder="Ask a question about your documents..." autocomplete="off" required>
@@ -218,9 +215,7 @@
             <div id="view-hr-matcher" class="app-view hidden">
                 <div class="hr-dashboard-container">
                     
-                    <!-- HR Upload Bar -->
                     <div class="hr-upload-cards">
-                        <!-- Job Description Upload Card -->
                         <div class="hr-card">
                             <div class="hr-card-header">
                                 <i data-lucide="file-badge-2" class="hr-card-icon"></i>
@@ -237,7 +232,6 @@
                             <div id="jd-requirements-chips" class="skills-chip-box"></div>
                         </div>
 
-                        <!-- Resumes Upload Card -->
                         <div class="hr-card">
                             <div class="hr-card-header">
                                 <i data-lucide="folder-up" class="hr-card-icon"></i>
@@ -270,6 +264,23 @@
                                 </button>
                             </div>
                         </div>
+
+                        <!-- Leaderboard Filters Bar (Phase 1) -->
+                        <div class="leaderboard-filter-bar">
+                            <button class="filter-tab-btn active" id="filter-btn-all" onclick="setLeaderboardFilter('all')">
+                                All Candidates <span class="filter-count" id="count-all">(0)</span>
+                            </button>
+                            <button class="filter-tab-btn" id="filter-btn-shortlisted" onclick="setLeaderboardFilter('shortlisted')">
+                                Shortlisted <span class="filter-count" id="count-shortlisted">(0)</span>
+                            </button>
+                            <button class="filter-tab-btn" id="filter-btn-strong" onclick="setLeaderboardFilter('strong')">
+                                Strong Fit <span class="filter-count" id="count-strong">(0)</span>
+                            </button>
+                            <button class="filter-tab-btn" id="filter-btn-weak" onclick="setLeaderboardFilter('weak')">
+                                Weak Fit <span class="filter-count" id="count-weak">(0)</span>
+                            </button>
+                        </div>
+
                         <div class="leaderboard-table-wrapper">
                             <table class="leaderboard-table">
                                 <thead>
@@ -279,7 +290,7 @@
                                         <th>Match Score %</th>
                                         <th>Fit Status</th>
                                         <th>Matched Required Skills</th>
-                                        <th>Missing Skills</th>
+                                        <th>HR Status</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -295,32 +306,147 @@
                     </div>
                 </div>
             </div>
+
+            <!-- CANDIDATE DEEP DIVE FULL VIEW (Matches Reference UI) -->
+            <div id="view-candidate-detail" class="app-view hidden" style="padding: 24px; overflow-y: auto; height: 100%;">
+                <div class="cd-topbar">
+                    <button class="cd-back-btn" onclick="hideCandidateDetailView()">
+                        <i data-lucide="chevron-left"></i>
+                        <span>Back to Results</span>
+                    </button>
+                </div>
+
+                <div class="cd-main-grid">
+                    <!-- Left Sidebar: Candidate Info Card & Quick Actions -->
+                    <div class="cd-left-sidebar">
+                        <div class="cd-card cd-profile-card">
+                            <div class="cd-avatar-circle" id="cd-avatar">AK</div>
+                            <h3 id="cd-name" class="cd-candidate-name">Candidate Name</h3>
+                            <p id="cd-role" class="cd-candidate-role">Full Stack Developer</p>
+                            <div class="cd-fit-wrapper">
+                                <span id="cd-fit-badge" class="fit-badge strong-fit">Strong Fit</span>
+                            </div>
+
+                            <div class="cd-specs-list">
+                                <div class="cd-spec-item"><i data-lucide="user"></i><span class="spec-lbl">Experience</span><span class="spec-val" id="cd-spec-exp">4+ Years</span></div>
+                                <div class="cd-spec-item"><i data-lucide="briefcase"></i><span class="spec-lbl">Current Role</span><span class="spec-val" id="cd-spec-role">Senior Full Stack Developer</span></div>
+                                <div class="cd-spec-item"><i data-lucide="map-pin"></i><span class="spec-lbl">Location</span><span class="spec-val" id="cd-spec-loc">Hyderabad, India</span></div>
+                                <div class="cd-spec-item"><i data-lucide="clock"></i><span class="spec-lbl">Notice Period</span><span class="spec-val" id="cd-spec-notice">30 Days</span></div>
+                                <div class="cd-spec-item"><i data-lucide="zap"></i><span class="spec-lbl">Availability</span><span class="spec-val" id="cd-spec-avail">Immediately</span></div>
+                                <div class="cd-spec-item"><i data-lucide="dollar-sign"></i><span class="spec-lbl">CTC</span><span class="spec-val" id="cd-spec-ctc">18 LPA</span></div>
+                                <div class="cd-spec-item"><i data-lucide="calendar"></i><span class="spec-lbl">Matched On</span><span class="spec-val" id="cd-spec-date">Today</span></div>
+                            </div>
+                        </div>
+
+                        <!-- Resume File Card -->
+                        <div class="cd-card cd-resume-card">
+                            <div class="cd-resume-info">
+                                <i data-lucide="file-text" class="cd-resume-icon"></i>
+                                <div>
+                                    <div class="cd-resume-filename" id="cd-resume-filename">candidate_resume.pdf</div>
+                                    <div class="cd-resume-filesize">Verified File</div>
+                                </div>
+                            </div>
+                            <button class="cd-btn-secondary" onclick="alert('Resume file verified.')">
+                                <i data-lucide="eye"></i>
+                                <span>Preview Resume</span>
+                            </button>
+                        </div>
+
+                        <!-- Quick Actions Card -->
+                        <div class="cd-card cd-actions-card">
+                            <h4 class="cd-card-title">Quick Actions</h4>
+                            <div class="cd-actions-list">
+                                <button class="cd-action-btn" id="cd-shortlist-btn" onclick="toggleActiveCandidateShortlist()">
+                                    <i data-lucide="bookmark"></i>
+                                    <span id="cd-shortlist-lbl">Shortlist Candidate</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Main Content: Sticky Tab Navigation & Continuous Sections -->
+                    <div class="cd-right-content">
+                        <!-- Sticky Navigation Tabs -->
+                        <div class="cd-nav-tabs">
+                            <button class="cd-tab-btn active" id="tab-btn-summary" onclick="scrollToCDSection('summary')">Match Summary</button>
+                            <button class="cd-tab-btn" id="tab-btn-breakdown" onclick="scrollToCDSection('breakdown')">Skills Breakdown</button>
+                            <button class="cd-tab-btn" id="tab-btn-projects" onclick="scrollToCDSection('projects')">Projects</button>
+                            <button class="cd-tab-btn" id="tab-btn-experience" onclick="scrollToCDSection('experience')">Experience</button>
+                            <button class="cd-tab-btn" id="tab-btn-education" onclick="scrollToCDSection('education')">Education</button>
+                            <button class="cd-tab-btn" id="tab-btn-analysis" onclick="scrollToCDSection('analysis')">Resume Analysis</button>
+                        </div>
+
+                        <div class="cd-sections-container">
+                            <!-- Section 1: Match Summary Pane -->
+                            <div id="cd-sec-summary" class="cd-section-pane">
+                                <div class="cd-pane-header">
+                                    <h3>Matched Skills & Evidence</h3>
+                                </div>
+                                <div class="cd-categories-list" id="cd-categories-grid">
+                                    <!-- Dynamically populated visual skill category cards -->
+                                </div>
+                            </div>
+
+                            <!-- Section 2: Skills Breakdown Pane -->
+                            <div id="cd-sec-breakdown" class="cd-section-pane">
+                                <div class="cd-pane-header">
+                                    <h3>Deterministic Match Score Breakdown</h3>
+                                </div>
+                                <div id="cd-breakdown-charts" class="cd-charts-grid"></div>
+                            </div>
+
+                            <!-- Section 3: Projects Pane -->
+                            <div id="cd-sec-projects" class="cd-section-pane">
+                                <div class="cd-pane-header">
+                                    <h3>Relevant Candidate Projects</h3>
+                                </div>
+                                <div id="cd-projects-list" class="cd-list-box"></div>
+                            </div>
+
+                            <!-- Section 4: Experience Pane -->
+                            <div id="cd-sec-experience" class="cd-section-pane">
+                                <div class="cd-pane-header">
+                                    <h3>Work History & Career Tenure</h3>
+                                </div>
+                                <div id="cd-experience-list" class="cd-list-box"></div>
+                            </div>
+
+                            <!-- Section 5: Education Pane -->
+                            <div id="cd-sec-education" class="cd-section-pane">
+                                <div class="cd-pane-header">
+                                    <h3>Education & Degree Qualifications</h3>
+                                </div>
+                                <div id="cd-education-list" class="cd-list-box"></div>
+                            </div>
+
+                            <!-- Section 6: Resume Analysis Pane -->
+                            <div id="cd-sec-analysis" class="cd-section-pane">
+                                <div class="cd-pane-header">
+                                    <h3>Extracted Evidence Quotes & Citations</h3>
+                                </div>
+                                <div id="cd-raw-evidence-list" class="cd-list-box"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 
-    <!-- Candidate Detail & Citations Modal -->
-    <div class="auth-overlay hidden" id="candidate-modal">
-        <div class="auth-modal candidate-detail-modal">
-            <div class="auth-modal-header">
-                <div class="modal-title-row">
-                    <h3 id="modal-candidate-name">Candidate Evaluation Details</h3>
-                    <span class="fit-badge" id="modal-fit-badge">Strong Fit</span>
+    <!-- RESUME PREVIEW MODAL -->
+    <div class="auth-overlay hidden" id="resume-preview-modal">
+        <div class="auth-modal" style="max-width: 800px; width: 90%; max-height: 85vh; display: flex; flex-direction: column;">
+            <div class="auth-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i data-lucide="file-text" style="color: var(--accent);"></i>
+                    <h3 id="preview-modal-title" style="font-size: 1.1rem; font-weight: 700;">Resume Document Preview</h3>
                 </div>
-                <button class="close-modal-btn" onclick="closeCandidateModal()">&times;</button>
+                <button class="close-modal-btn" onclick="closeResumePreviewModal()">&times;</button>
             </div>
-            <div class="modal-body">
-                <div class="score-breakdown-row">
-                    <div class="score-card-big">
-                        <span class="score-num" id="modal-final-score">92%</span>
-                        <span class="score-lbl">Match Score</span>
-                    </div>
-                    <div class="breakdown-metrics" id="modal-breakdown-metrics"></div>
-                </div>
-                
-                <div class="detail-section">
-                    <h4>Matched Skills & Evidence</h4>
-                    <div id="modal-evidence-list"></div>
-                </div>
+            <div class="modal-body" style="flex: 1; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 16px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap; color: #e2e8f0;" id="preview-modal-text">
+                Loading resume document...
             </div>
         </div>
     </div>

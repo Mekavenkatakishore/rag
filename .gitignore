@@ -22,3 +22,4 @@ chroma_db/
 uploaded_files/*
 !uploaded_files/.gitkeep
 app/db/users.db
+.env.example

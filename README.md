@@ -30,7 +30,7 @@ This repository leverages **LangChain**, **FastAPI**, **Chroma DB**, **FlashRank
 - **Dynamic Multi-Format Ingestor**: Loader factory supporting `.pdf`, `.docx`, `.txt`, `.csv`, `.pptx`, `.html`, and `.md` documents.
 - **Hybrid Search Engine**: Combines Dense Retrieval (`ChromaDB` + `sentence-transformers/all-MiniLM-L6-v2`) and Sparse Retrieval (`BM25Retriever`) in a weighted ensemble.
 - **Stage 2 Contextual Reranking**: Uses local **FlashRank Cross-Encoder** model to re-score candidate passages and compress context down to top 4 relevant chunks.
-- **⚡ Real-Time SSE Token Streaming**: Word-by-word LLM token streaming via **Server-Sent Events (SSE)** using `POST /query/stream` and Groq's `llama-3.1-8b-instant`.
+- **⚡ Real-Time SSE Token Streaming**: Word-by-word LLM token streaming via **Server-Sent Events (SSE)** using `POST /query/stream` and Groq's `llama-3.3-70b-versatile`.
 - **⚡ Incremental Indexing & BM25 Pickle Cache**: Change detection via `index_registry.json` and persistent `bm25_cache.pkl` — sub-5-second server startup time.
 - **🔐 JWT Authentication**: User registration, login, PBKDF2 password hashing with salt, and bearer token authorization.
 - **🗑️ Document Lifecycle Management**: Delete button in UI sidebar (`DELETE /files/{filename}`) cleaning up disk files, Chroma vectorstore entries, and index metadata.

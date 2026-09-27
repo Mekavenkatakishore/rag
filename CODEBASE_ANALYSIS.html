@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Pro - Codebase Analysis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            border-left: 4px solid #667eea;
+            padding-left: 20px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+        }
+
+        .section h3 {
+            color: #764ba2;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.3em;
+        }
+
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .tech-item {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+        }
+
+        .tech-item strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin: 15px 0;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .code-block {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        .architecture-box {
+            background: #f0f4ff;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .score-box {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        .workflow {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .workflow-step {
+            background: #667eea;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .workflow-arrow {
+            color: #667eea;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 RAG Pro - Intelligent Hybrid RAG & AI HR Assistant</h1>
+            <p>Enterprise-Grade AI Platform for Document Q&A and Candidate Matching</p>
+        </div>
+
+        <div class="content">
+            <!-- PROJECT OVERVIEW -->
+            <div class="section">
+                <h2>📋 Project Overview</h2>
+                <p>RAG Pro is a full-stack, production-ready AI platform combining two core modules:</p>
+                <ul class="feature-list">
+                    <li><strong>Playbook & Document Q&A RAG</strong> - Hybrid semantic + keyword search with LLM-powered context generation</li>
+                    <li><strong>AI HR Candidate Matcher</strong> - Deterministic scoring, skill normalization, and evidence retrieval for resume screening</li>
+                    <li><strong>Agentic AI Engine</strong> - Multi-agent workflow orchestration using LangGraph state machine</li>
+                    <li><strong>JWT Authentication</strong> - Secure user registration, login, and token-based authorization</li>
+                    <li><strong>SSE Streaming</strong> - Real-time word-by-word token streaming via Server-Sent Events</li>
+                </ul>
+            </div>
+
+            <!-- ARCHITECTURE -->
+            <div class="section">
+                <h2>🏗️ System Architecture</h2>
+
+                <h3>Core Stack</h3>
+                <div class="tech-stack">
+                    <div class="tech-item">
+                        <strong>Backend</strong>
+                        FastAPI + Uvicorn, Python 3.11+
+                    </div>
+                    <div class="tech-item">
+                        <strong>LLM & Agents</strong>
+                        Groq (Llama 3.3 70b), LangGraph, LangChain
+                    </div>
+                    <div class="tech-item">
+                        <strong>Embeddings</strong>
+                        sentence-transformers/all-MiniLM-L6-v2
+                    </div>
+                    <div class="tech-item">
+                        <strong>Vector DB</strong>
+                        ChromaDB v1.0.20 (persistent)
+                    </div>
+                    <div class="tech-item">
+                        <strong>Ranking</strong>
+                        FlashRank Cross-Encoder (ms-marco-MiniLM-L-6-v2)
+                    </div>
+                    <div class="tech-item">
+                        <strong>Keyword Search</strong>
+                        BM25Retriever + Pickle caching
+                    </div>
+                    <div class="tech-item">
+                        <strong>Storage</strong>
+                        SQLite (users, HR jobs, candidates)
+                    </div>
+                    <div class="tech-item">
+                        <strong>Frontend</strong>
+                        Vanilla JS, Dark Mode CSS, Lucide Icons
+                    </div>
+                </div>
+
+                <h3>Layered Architecture</h3>
+                <div class="architecture-box">
+                    <pre><code>┌─────────────────────────────────────────┐
+│      Frontend (HTML/CSS/JS)             │
+│  Dark-mode Dashboard + Auth Modal       │
+└────────────────────┬────────────────────┘
+                     │
+┌────────────────────▼────────────────────┐
+│      FastAPI Server (server.py)         │
+│  - CORS, Static Files, Router Mounting  │
+└────────────────────┬────────────────────┘
+                     │
+        ┌────────────┼────────────────┐
+        │            │                │
+   ┌────▼───┐  ┌────▼──┐      ┌─────▼──┐
+   │   RAG  │  │  Auth │      │   HR   │
+   │ Routes │  │ Routes│      │ Routes │
+   └────┬───┘  └────┬──┘      └─────┬──┘
+        │           │               │
+   ┌────▼────────────▼───────────────▼────┐
+   │    Services (Business Logic)         │
+   │  - RAG Service (Ingestion/Retrieval) │
+   │  - HR Service (Scoring/Matching)     │
+   │  - Auth Service (JWT/Hashing)        │
+   │  - Agent Graph (LangGraph)           │
+   └────┬────────────────────────────────┘
+        │
+   ┌────▼─────────────────────────┐
+   │  Data Layer                  │
+   │  - ChromaDB (vectors)        │
+   │  - SQLite (users, HR data)   │
+   │  - BM25 Cache (pkl)          │
+   └──────────────────────────────┘</code></pre>
+                </div>
+            </div>
+
+            <!-- RAG MODULE -->
+            <div class="section">
+                <h2>📚 RAG Playbook Module (General Document Q&A)</h2>
+
+                <h3>Key Features</h3>
+                <ul class="feature-list">
+                    <li>Multi-format document ingestion (.pdf, .docx, .txt, .csv, .pptx, .html, .md)</li>
+                    <li>Incremental indexing with change detection (index_registry.json)</li>
+                    <li>Hybrid search: Dense (ChromaDB) + Sparse (BM25) ensemble</li>
+                    <li>FlashRank cross-encoder reranking (top 4 chunks)</li>
+                    <li>SSE streaming for real-time token generation</li>
+                    <li>Document lifecycle management (upload, delete)</li>
+                </ul>
+
+                <h3>Retrieval Pipeline</h3>
+                <div class="workflow">
+                    <div class="workflow-step">Query</div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step">Condense (if chat)</div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step">Hybrid Search</div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step">FlashRank</div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step">LLM Generate</div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step">Stream/Response</div>
+                </div>
+
+                <h3>Configuration</h3>
+                <div class="code-block">CHUNKING_STRATEGY: recursive
+CHUNK_SIZE: 1000 chars
+CHUNK_OVERLAP: 200 chars
+RETRIEVER_TOP_K: 15 candidates
+RERANKER_TOP_N: 4 final chunks
+HYBRID_SEMANTIC_WEIGHT: 0.5
+HYBRID_KEYWORD_WEIGHT: 0.5</div>
+
+                <h3>Key Services</h3>
+                <table>
+                    <tr>
+                        <th>Service</th>
+                        <th>File</th>
+                        <th>Responsibility</th>
+                    </tr>
+                    <tr>
+                        <td>Ingestion</td>
+                        <td>app/services/rag/ingestion_service.py</td>
+                        <td>Text splitting, chunking, document loading</td>
+                    </tr>
+                    <tr>
+                        <td>Retrieval</td>
+                        <td>app/services/rag/retrieval_service.py</td>
+                        <td>Hybrid search, BM25/semantic ensemble</td>
+                    </tr>
+                    <tr>
+                        <td>Reranking</td>
+                        <td>app/services/rag/reranking_service.py</td>
+                        <td>FlashRank compression retriever</td>
+                    </tr>
+                    <tr>
+                        <td>Generation</td>
+                        <td>app/services/rag/generation_service.py</td>
+                        <td>LLM chain for RAG answer generation</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- HR MODULE -->
+            <div class="section">
+                <h2>👥 AI HR Candidate Matcher Module (Phase 1)</h2>
+
+                <h3>End-to-End Workflow</h3>
+                <div class="workflow">
+                    <div class="workflow-step">Upload JD</div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step">Parse JD</div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step">Upload Resumes</div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step">Score Candidates</div>
+                    <div class="workflow-arrow">→</div>
+                    <div class="workflow-step">Display Leaderboard</div>
+                </div>
+
+                <h3>Deterministic Scoring Engine (0-100)</h3>
+                <div class="score-box">
+                    <strong>Weight Distribution:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li>Required Skills Match: 40%</li>
+                        <li>Relevant Experience: 25%</li>
+                        <li>Project Relevance: 15%</li>
+                        <li>Preferred Skills: 10%</li>
+                        <li>Education Fit: 5%</li>
+                        <li>Domain Fit: 5%</li>
+                    </ul>
+                </div>
+
+                <h3>Fit Categories</h3>
+                <table>
+                    <tr>
+                        <th>Category</th>
+                        <th>Score Range</th>
+                        <th>Color</th>
+                    </tr>
+                    <tr>
+                        <td>Strong Fit</td>
+                        <td>≥ 80%</td>
+                        <td>🟢 Green</td>
+                    </tr>
+                    <tr>
+                        <td>Moderate Fit</td>
+                        <td>60-79%</td>
+                        <td>🟡 Yellow</td>
+                    </tr>
+                    <tr>
+                        <td>Weak Fit</td>
+                        <td>&lt; 60%</td>
+                        <td>🔴 Red</td>
+                    </tr>
+                </table>
+
+                <h3>Skill Normalization</h3>
+                <p>Canonical skill mapping (case-insensitive, variation handling):</p>
+                <div class="code-block">PostgreSQL ← Postgres, pg, postgre
+React ← ReactJS, React.js, Reactjs
+Kubernetes ← K8s, k8, k3s
+Node.js ← NodeJS, Node, nodejs
+AWS ← Amazon EC2, Amazon AWS, EC2</div>
+
+                <h3>Data Storage (SQLite)</h3>
+                <table>
+                    <tr>
+                        <th>Table</th>
+                        <th>Purpose</th>
+                        <th>Key Fields</th>
+                    </tr>
+                    <tr>
+                        <td>hr_jobs</td>
+                        <td>Job container metadata</td>
+                        <td>job_id, title, jd_parsed_json</td>
+                    </tr>
+                    <tr>
+                        <td>hr_candidates</td>
+                        <td>Resume submissions</td>
+                        <td>candidate_id, job_id, filename, candidate_status</td>
+                    </tr>
+                    <tr>
+                        <td>hr_candidate_profiles</td>
+                        <td>Parsed resume content</td>
+                        <td>candidate_id, profile_json</td>
+                    </tr>
+                    <tr>
+                        <td>hr_candidate_scores</td>
+                        <td>Scores &amp; breakdowns</td>
+                        <td>candidate_id, job_id, final_score, score_breakdown_json</td>
+                    </tr>
+                    <tr>
+                        <td>hr_candidate_evidence</td>
+                        <td>Supporting quotes</td>
+                        <td>candidate_id, skill, matched, evidence_quote, document, page</td>
+                    </tr>
+                </table>
+
+                <h3>Core Services</h3>
+                <table>
+                    <tr>
+                        <th>Service</th>
+                        <th>File</th>
+                        <th>Responsibility</th>
+                    </tr>
+                    <tr>
+                        <td>JD Parser</td>
+                        <td>app/services/hr/jd_parser_service.py</td>
+                        <td>Extract title, skills, experience, education from JD</td>
+                    </tr>
+                    <tr>
+                        <td>Resume Parser</td>
+                        <td>app/services/hr/resume_parser_service.py</td>
+                        <td>Parse candidate resume into structured profile</td>
+                    </tr>
+                    <tr>
+                        <td>Skill Normalizer</td>
+                        <td>app/services/hr/skill_normalizer_service.py</td>
+                        <td>Canonical skill mapping &amp; matching</td>
+                    </tr>
+                    <tr>
+                        <td>Scoring Engine</td>
+                        <td>app/services/hr/scoring_service.py</td>
+                        <td>Deterministic 0-100 score calculation</td>
+                    </tr>
+                    <tr>
+                        <td>Evidence Retrieval</td>
+                        <td>app/services/hr/evidence_service.py</td>
+                        <td>Hybrid search + FlashRank for supporting quotes</td>
+                    </tr>
+                    <tr>
+                        <td>Candidate Matching</td>
+                        <td>app/services/hr/candidate_matching_service.py</td>
+                        <td>Orchestrate parsing, scoring, evidence</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- AGENT MODULE -->
+            <div class="section">
+                <h2>🤖 Agentic AI Engine (LangGraph)</h2>
+
+                <h3>Graph Architecture</h3>
+                <p>Multi-node state machine for query routing and tool execution:</p>
+                <div class="code-block">START
+  │
+  └─→ analyze_query_node (intent detection)
+      │
+      └─→ route_by_intent (conditional routing)
+          │
+          └─→ tool_execution_node (execute RAG/HR tools)
+              │
+              └─→ response_generation_node (compose answer)
+                  │
+                  └─→ END</div>
+
+                <h3>State Definition</h3>
+                <table>
+                    <tr>
+                        <th>Field</th>
+                        <th>Type</th>
+                        <th>Purpose</th>
+                    </tr>
+                    <tr>
+                        <td>messages</td>
+                        <td>List</td>
+                        <td>LangGraph message history (add_messages reducer)</td>
+                    </tr>
+                    <tr>
+                        <td>user_query</td>
+                        <td>str</td>
+                        <td>Original user input</td>
+                    </tr>
+                    <tr>
+                        <td>intent</td>
+                        <td>str</td>
+                        <td>Detected query intent (RAG, HR, etc.)</td>
+                    </tr>
+                    <tr>
+                        <td>job_id</td>
+                        <td>Optional[str]</td>
+                        <td>Target HR job context</td>
+                    </tr>
+                    <tr>
+                        <td>selected_tool</td>
+                        <td>Optional[str]</td>
+                        <td>Tool to execute (RAG, HR functions)</td>
+                    </tr>
+                    <tr>
+                        <td>tool_result</td>
+                        <td>Optional[str]</td>
+                        <td>Result from tool execution</td>
+                    </tr>
+                    <tr>
+                        <td>final_response</td>
+                        <td>Optional[str]</td>
+                        <td>LLM-generated final answer</td>
+                    </tr>
+                </table>
+
+                <h3>Tools Available</h3>
+                <ul class="feature-list">
+                    <li><strong>RAG Tools</strong> - Query playbook, search documents</li>
+                    <li><strong>HR Tools</strong> - Get candidate info, leaderboard, scores</li>
+                    <li><strong>Action Tools</strong> - Create jobs, upload files, analyze candidates</li>
+                </ul>
+            </div>
+
+            <!-- AUTHENTICATION -->
+            <div class="section">
+                <h2>🔐 Authentication & Security</h2>
+
+                <h3>User Management</h3>
+                <ul class="feature-list">
+                    <li>Registration: username, email, password validation</li>
+                    <li>Password Hashing: PBKDF2 with salt (sha256)</li>
+                    <li>Token-based Auth: JWT (HS256, 24-hour expiration)</li>
+                    <li>Dependency: get_current_user() middleware on protected routes</li>
+                </ul>
+
+                <h3>Database Schema (users table)</h3>
+                <table>
+                    <tr>
+                        <th>Column</th>
+                        <th>Type</th>
+                        <th>Notes</th>
+                    </tr>
+                    <tr>
+                        <td>id</td>
+                        <td>INTEGER PRIMARY KEY</td>
+                        <td>Auto-increment user ID</td>
+                    </tr>
+                    <tr>
+                        <td>username</td>
+                        <td>TEXT UNIQUE</td>
+                        <td>Must be unique globally</td>
+                    </tr>
+                    <tr>
+                        <td>email</td>
+                        <td>TEXT UNIQUE</td>
+                        <td>Must be unique globally</td>
+                    </tr>
+                    <tr>
+                        <td>hashed_password</td>
+                        <td>TEXT</td>
+                        <td>PBKDF2 sha256 hash</td>
+                    </tr>
+                    <tr>
+                        <td>salt</td>
+                        <td>TEXT</td>
+                        <td>Random salt for hashing</td>
+                    </tr>
+                    <tr>
+                        <td>created_at</td>
+                        <td>TEXT</td>
+                        <td>ISO 8601 timestamp</td>
+                    </tr>
+                </table>
+
+                <h3>Protected Routes</h3>
+                <ul class="feature-list">
+                    <li>POST /upload (RAG)</li>
+                    <li>POST /query (RAG)</li>
+                    <li>POST /query/stream (RAG)</li>
+                    <li>All /hr/* routes</li>
+                    <li>All /agent/* routes</li>
+                </ul>
+            </div>
+
+            <!-- API ENDPOINTS -->
+            <div class="section">
+                <h2>🔌 API Endpoints</h2>
+
+                <h3>Auth Endpoints</h3>
+                <table>
+                    <tr>
+                        <th>Method</th>
+                        <th>Route</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/auth/register</td>
+                        <td>User registration with username, email, password</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/auth/login</td>
+                        <td>Login returns JWT access token</td>
+                    </tr>
+                </table>
+
+                <h3>RAG Endpoints (Protected)</h3>
+                <table>
+                    <tr>
+                        <th>Method</th>
+                        <th>Route</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/upload</td>
+                        <td>Upload document (.pdf, .docx, .txt, etc.)</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/query</td>
+                        <td>Query with chat history, returns answer + citations</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/query/stream</td>
+                        <td>SSE streaming query response</td>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td>/status</td>
+                        <td>Indexing status &amp; document list</td>
+                    </tr>
+                    <tr>
+                        <td>DELETE</td>
+                        <td>/files/{filename}</td>
+                        <td>Remove document from index</td>
+                    </tr>
+                </table>
+
+                <h3>HR Endpoints (Protected)</h3>
+                <table>
+                    <tr>
+                        <th>Method</th>
+                        <th>Route</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/hr/jobs</td>
+                        <td>Create new job screening container</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/hr/jobs/{job_id}/upload-jd</td>
+                        <td>Upload &amp; parse Job Description</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/hr/jobs/{job_id}/upload-resumes</td>
+                        <td>Batch upload candidate resumes</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/hr/jobs/{job_id}/analyze</td>
+                        <td>Score all candidates for job</td>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td>/hr/jobs/{job_id}/leaderboard</td>
+                        <td>Get ranked candidate list</td>
+                    </tr>
+                    <tr>
+                        <td>GET</td>
+                        <td>/hr/jobs/{job_id}/candidates/{candidate_id}</td>
+                        <td>Get candidate details &amp; evidence</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/hr/jobs/{job_id}/chat</td>
+                        <td>Ask questions about candidates</td>
+                    </tr>
+                    <tr>
+                        <td>POST</td>
+                        <td>/hr/jobs/{job_id}/clear</td>
+                        <td>Purge all candidates &amp; scores</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- DIRECTORY STRUCTURE -->
+            <div class="section">
+                <h2>📁 Directory Structure</h2>
+                <div class="code-block">rag_pro/
+├── server.py                 # Main FastAPI entry point
+├── requirements.txt          # Python dependencies
+├── Dockerfile               # Production container config
+├── docker-compose.yml       # Container orchestration
+│
+├── app/
+│   ├── core/                # Configuration &amp; factories
+│   │   ├── config.py       # Settings (env, paths, models)
+│   │   ├── llm_factory.py  # Groq LLM instance factory
+│   │   ├── security.py     # JWT &amp; password utils
+│   │   └── exceptions.py   # Custom exceptions
+│   │
+│   ├── api/                 # FastAPI route handlers
+│   │   ├── endpoints.py    # RAG routes
+│   │   ├── hr_endpoints.py # HR routes
+│   │   ├── auth.py         # Auth routes
+│   │   ├── agent_endpoints.py  # Agent routes
+│   │   └── deps.py         # Dependency injection
+│   │
+│   ├── services/            # Business logic layer
+│   │   ├── rag/            # RAG sub-services
+│   │   │   ├── ingestion_service.py    # Chunking
+│   │   │   ├── retrieval_service.py    # Hybrid search
+│   │   │   ├── reranking_service.py    # FlashRank
+│   │   │   └── generation_service.py   # LLM chains
+│   │   ├── hr/             # HR sub-services
+│   │   │   ├── jd_parser_service.py
+│   │   │   ├── resume_parser_service.py
+│   │   │   ├── scoring_service.py
+│   │   │   ├── evidence_service.py
+│   │   │   └── candidate_matching_service.py
+│   │   ├── auth/           # Auth service
+│   │   │   └── auth_service.py
+│   │   ├── rag_service.py  # Facade wrapper (backward compat)
+│   │   ├── hr_service.py   # Facade wrapper (backward compat)
+│   │   ├── scoring_engine.py    # Score calculator
+│   │   └── skill_normalizer.py  # Skill mapping
+│   │
+│   ├── agent/              # LangGraph agentic AI
+│   │   ├── graph.py        # State machine definition
+│   │   ├── state.py        # AgentState TypedDict
+│   │   ├── router.py       # Intent routing logic
+│   │   ├── llm.py          # LLM initialization
+│   │   ├── prompts.py      # Prompt templates
+│   │   ├── nodes/          # Graph node implementations
+│   │   │   ├── analysis.py
+│   │   │   ├── execution.py
+│   │   │   └── response.py
+│   │   └── tools/          # Tool definitions
+│   │       ├── rag_tools.py
+│   │       ├── hr_tools.py
+│   │       └── action_tools.py
+│   │
+│   ├── db/                 # Data persistence
+│   │   ├── base_db.py     # Context manager for connections
+│   │   ├── user_db.py     # User registration &amp; auth
+│   │   └── hr_db.py       # HR jobs, candidates, scores
+│   │
+│   ├── loaders/            # Document format parsers
+│   │   ├── base.py         # Base loader interface
+│   │   ├── pdf_loader.py
+│   │   ├── docx_loader.py
+│   │   ├── csv_loader.py
+│   │   ├── ppt_loader.py
+│   │   ├── html_loader.py
+│   │   ├── markdown_loader.py
+│   │   ├── text_loader.py
+│   │   └── loader_factory.py  # Factory pattern
+│   │
+│   ├── schemas/            # Pydantic models
+│   │   ├── rag_schemas.py
+│   │   ├── hr_schemas.py
+│   │   ├── auth_schemas.py
+│   │   └── agent_schemas.py
+│   │
+│   └── utils/              # Utilities
+│       ├── logger.py       # Centralized logging
+│       └── __init__.py
+│
+├── static/                 # Frontend UI
+│   ├── index.html         # Main HTML shell
+│   ├── style.css          # Dark-mode styling
+│   └── app.js             # Frontend logic
+│
+├── tests/                  # Test suites
+│   ├── unit/              # Unit tests
+│   ├── integration/       # Integration tests
+│   ├── e2e/               # End-to-end tests
+│   ├── agent/             # Agent workflow tests
+│   └── benchmarks/        # Performance tests
+│
+└── uploaded_files/        # User document uploads
+    └── (dynamically created)</div>
+            </div>
+
+            <!-- KEY FILES ANALYSIS -->
+            <div class="section">
+                <h2>🔑 Key Files Deep Dive</h2>
+
+                <h3>server.py - Application Entry Point</h3>
+                <ul class="feature-list">
+                    <li>Initializes FastAPI app with title &amp; description</li>
+                    <li>Mounts CORS middleware (allow all origins)</li>
+                    <li>Includes 4 routers: API, Auth, HR, Agent</li>
+                    <li>Serves static files from ./static directory</li>
+                    <li>Startup event: Initialize databases &amp; rebuild retrievers</li>
+                </ul>
+
+                <h3>app/core/config.py - Centralized Configuration</h3>
+                <ul class="feature-list">
+                    <li>Settings class loads .env variables with sensible defaults</li>
+                    <li>Paths: Upload dir, Chroma path, Database paths</li>
+                    <li>JWT: Secret key, algorithm, expiration (24 hours)</li>
+                    <li>LLM: Groq API key, model name (llama-3.3-70b-versatile)</li>
+                    <li>Embedding: sentence-transformers/all-MiniLM-L6-v2</li>
+                    <li>Retrieval tuning: chunk size, overlap, top-k, reranker-n</li>
+                </ul>
+
+                <h3>app/core/llm_factory.py - LLM Management</h3>
+                <ul class="feature-list">
+                    <li>Queries Groq API for available models</li>
+                    <li>Auto-fallback to preferred model if requested model unavailable</li>
+                    <li>LRU cache for LLM instances</li>
+                    <li>Fallback preference order: llama-3.3-70b → llama3-8b → mixtral</li>
+                </ul>
+
+                <h3>app/services/rag_service.py - RAG Orchestration</h3>
+                <ul class="feature-list">
+                    <li>rebuild_retrievers() - Incremental indexing orchestration</li>
+                    <li>Change detection via index_registry.json mtime comparison</li>
+                    <li>BM25 cache rebuilt only when files change</li>
+                    <li>query_rag_service() - Full RAG pipeline (search → rerank → generate)</li>
+                    <li>stream_query_rag_service() - SSE token streaming</li>
+                </ul>
+
+                <h3>app/services/scoring_engine.py - Deterministic Scoring</h3>
+                <ul class="feature-list">
+                    <li>calculate_candidate_score() takes analysis_result + jd_requirements</li>
+                    <li>Set intersection matching for skills (normalized)</li>
+                    <li>Weighted aggregation: req_skills (40%) + exp (25%) + project (15%) + pref (10%) + edu (5%) + domain (5%)</li>
+                    <li>Zero LLM hallucination: Pure Python math</li>
+                    <li>Returns: final_score, fit_category, score_breakdown</li>
+                </ul>
+
+                <h3>app/db/base_db.py - Database Context Manager</h3>
+                <ul class="feature-list">
+                    <li>Context manager for database connections (get_db_connection)</li>
+                    <li>Ensures proper connection closing &amp; transaction handling</li>
+                    <li>Works with both user_db &amp; hr_db modules</li>
+                </ul>
+            </div>
+
+            <!-- CONFIGURATION & TUNING -->
+            <div class="section">
+                <h2>⚙️ Configuration & Environment Variables</h2>
+                <div class="code-block">GROQ_API_KEY=gsk_your_key_here
+JWT_SECRET_KEY=your_super_secret_key
+CHUNKING_STRATEGY=recursive
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=200
+RETRIEVER_TOP_K=15
+RERANKER_TOP_N=4
+HYBRID_SEMANTIC_WEIGHT=0.5
+HYBRID_KEYWORD_WEIGHT=0.5
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+RERANKER_MODEL=ms-marco-MiniLM-L-6-v2
+GROQ_MODEL=llama-3.3-70b-versatile
+JWT_ALGORITHM=HS256
+JWT_TOKEN_EXPIRE_HOURS=24</div>
+            </div>
+
+            <!-- DEVELOPMENT WORKFLOW -->
+            <div class="section">
+                <h2>🚀 Development & Deployment</h2>
+
+                <h3>Local Development</h3>
+                <div class="code-block">pip install -r requirements.txt
+python -m uvicorn server:app --reload --port 8002
+# Access at http://localhost:8002</div>
+
+                <h3>Testing</h3>
+                <div class="code-block">python -m unittest tests/test_hr_matching.py
+python -m pytest tests/integration/
+python -m pytest tests/e2e/</div>
+
+                <h3>Docker Deployment</h3>
+                <div class="code-block">docker-compose up -d
+# Services: FastAPI (8002), ChromaDB, SQLite volumes</div>
+
+                <h3>Key Performance Optimizations</h3>
+                <ul class="feature-list">
+                    <li>Incremental indexing - Only process changed files</li>
+                    <li>BM25 pickle cache - Sub-5-second startup</li>
+                    <li>LLM instance LRU caching - Reuse ChatGroq instances</li>
+                    <li>Hybrid search - Combine dense + sparse for speed &amp; accuracy</li>
+                    <li>FlashRank early stopping - Top 4 chunks sufficient</li>
+                    <li>SSE streaming - Progressive rendering in frontend</li>
+                </ul>
+            </div>
+
+            <!-- RECENT CHANGES -->
+            <div class="section">
+                <h2>📝 Recent Git Changes</h2>
+
+                <h3>Modified Files (Current State)</h3>
+                <div class="code-block">M DOCUMENTATION.md
+M README.md
+M app/api/auth.py
+M app/api/endpoints.py
+M app/api/hr_endpoints.py
+M app/db/hr_db.py
+M app/db/hr_system.db
+M app/db/user_db.py
+M app/services/hr_service.py
+M app/services/rag_service.py
+M app/services/scoring_engine.py
+M app/services/skill_normalizer.py
+M requirements.txt
+M server.py
+M static/app.js
+M static/index.html
+M static/style.css
+M test_auth.py
+M test_phase1.py
+M test_phase2.py
+M test_semantic_chunking.py</div>
+
+                <h3>New Files (Restructuring)</h3>
+                <div class="code-block">?? .env.example
+?? app/agent/                  # New agentic AI module
+?? app/api/agent_endpoints.py
+?? app/core/config.py          # Centralized config
+?? app/core/llm_factory.py     # LLM factory pattern
+?? app/core/exceptions.py      # Custom exceptions
+?? app/db/base_db.py           # DB context manager
+?? app/loaders/base.py         # Base loader interface
+?? app/schemas/                # Pydantic models split by domain
+?? app/services/auth/          # Auth service module
+?? app/services/hr/            # HR service refactoring
+?? app/services/rag/           # RAG service refactoring
+?? scripts/                     # Utility scripts
+?? tests/agent/                # Agent workflow tests
+?? tests/benchmarks/           # Performance benchmarks
+?? tests/e2e/                  # End-to-end tests
+?? tests/integration/          # Integration tests
+?? tests/unit/                 # Unit tests</div>
+            </div>
+
+            <!-- STATS -->
+            <div class="section">
+                <h2>📊 Project Statistics</h2>
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-number">40+</div>
+                        <div class="stat-label">Python Modules</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">5</div>
+                        <div class="stat-label">API Routers</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">3</div>
+                        <div class="stat-label">SQLite Tables (HR)</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">7</div>
+                        <div class="stat-label">Document Formats</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">100%</div>
+                        <div class="stat-label">Deterministic Scoring</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">3</div>
+                        <div class="stat-label">LangGraph Nodes</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUMMARY -->
+            <div class="section">
+                <h2>✅ Summary</h2>
+                <div class="success">
+                    <strong>RAG Pro is a comprehensive, production-ready platform that combines:</strong>
+                    <ul style="margin-top: 10px; padding-left: 20px;">
+                        <li>Enterprise-grade hybrid RAG with real-time streaming</li>
+                        <li>Deterministic AI candidate matching with skill normalization</li>
+                        <li>Multi-agent orchestration via LangGraph</li>
+                        <li>JWT authentication with secure password hashing</li>
+                        <li>Multi-format document ingestion &amp; processing</li>
+                        <li>Persistent storage (SQLite + ChromaDB) with intelligent caching</li>
+                        <li>Dark-mode frontend with responsive design</li>
+                        <li>Docker containerization for cloud deployment</li>
+                    </ul>
+                </div>
+
+                <p style="margin-top: 20px; font-size: 0.95em; color: #666;">
+                    <strong>Latest Commit:</strong> Phase 1 AI HR Candidate Matcher and Leaderboard UI<br>
+                    <strong>Architecture:</strong> Layered (UI → API → Services → DB)<br>
+                    <strong>LLM Provider:</strong> Groq Cloud (Llama 3.3 70b)<br>
+                    <strong>Status:</strong> Production-Ready ✅
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

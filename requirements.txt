@@ -3,6 +3,7 @@ langchain
 langchain-classic
 langchain-huggingface
 langchain-groq
+langgraph>=0.2.0
 sentence-transformers
 transformers
 torch>=2.7.0

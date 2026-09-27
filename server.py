@@ -8,12 +8,13 @@ from fastapi.responses import RedirectResponse
 from app.api.endpoints import router as api_router
 from app.api.auth import auth_router
 from app.api.hr_endpoints import router as hr_router
+from app.api.agent_endpoints import router as agent_router
 from app.services.rag_service import rebuild_retrievers
 from app.db.user_db import initialize_db
 from app.db.hr_db import initialize_hr_db
 from app.utils.logger import logger
 
-app = FastAPI(title="Intelligent Hybrid RAG & HR Candidate Matching Chatbot")
+app = FastAPI(title="Intelligent Hybrid RAG & Agentic AI HR Assistant")
 
 # CORS Setup
 app.add_middleware(
@@ -33,6 +34,9 @@ app.include_router(auth_router, prefix="/auth", tags=["auth"])
 # Include HR Candidate Matcher endpoints (prefixed with /hr)
 app.include_router(hr_router, prefix="/hr", tags=["hr"])
 
+# Include Agentic AI endpoints (prefixed with /agent)
+app.include_router(agent_router, prefix="/agent", tags=["agent"])
+
 # Serve Static Files
 STATIC_DIR = "./static"
 os.makedirs(STATIC_DIR, exist_ok=True)
@@ -47,14 +51,12 @@ def read_root():
 @app.on_event("startup")
 async def startup_event():
     logger.info("Application starting up...")
-    # Initialize SQLite databases
     try:
         initialize_db()
         initialize_hr_db()
         logger.info("Databases initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to initialize databases: {e}")
-    # Rebuild the RAG index
     try:
         rebuild_retrievers()
     except Exception as e:
