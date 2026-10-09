@@ -94,6 +94,23 @@ def create_job(job_id: str, user_id: int | None, title: str, jd_filename: str = 
         """, (job_id, user_id, title, jd_filename, jd_json, now))
     return {"job_id": job_id, "title": title, "created_at": now}
 
+def ensure_job_exists(job_id: str, user_id: int | None, default_title: str) -> dict:
+    """Creates the job row only if it doesn't already exist.
+
+    Unlike create_job() (which uses INSERT OR REPLACE and will silently wipe an
+    already-parsed jd_parsed_json back to empty), this is safe to call repeatedly —
+    e.g. from the legacy "upload to default job" routes — without destroying a JD
+    that was already uploaded and parsed for this job_id.
+    """
+    now = datetime.datetime.utcnow().isoformat()
+    with get_db_connection(settings.HR_DATABASE_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR IGNORE INTO hr_jobs (job_id, user_id, title, jd_filename, jd_parsed_json, created_at)
+            VALUES (?, ?, ?, NULL, '{}', ?)
+        """, (job_id, user_id, default_title, now))
+    return {"job_id": job_id, "title": default_title, "created_at": now}
+
 def get_job(job_id: str) -> dict | None:
     with get_db_connection(settings.HR_DATABASE_PATH) as conn:
         cursor = conn.cursor()

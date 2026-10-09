@@ -18,7 +18,7 @@ from app.services.rag.retrieval_service import (
     create_hybrid_retriever,
 )
 from app.services.rag.reranking_service import build_compression_retriever
-from app.services.rag.generation_service import condense_chain, rag_chain
+from app.services.rag.generation_service import condense_chain, rag_chain, no_context_chain
 
 UPLOAD_DIR = settings.UPLOAD_DIR
 CHROMA_DIR = settings.CHROMA_PATH
@@ -27,6 +27,20 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(CHROMA_DIR, exist_ok=True)
 
 llm = get_llm(temperature=0.3)
+
+# Phrases the rag_chain prompt (generation_service.py) is instructed to use when
+# it falls back to general knowledge because the retrieved context didn't cover
+# the question. Used to detect that case so the retrieved-but-unused chunks
+# aren't shown to the user as if they were the answer's actual source.
+_GENERAL_KNOWLEDGE_MARKERS = (
+    "couldn't find this in your uploaded documents",
+    "could not find this in your uploaded documents",
+    "based on general knowledge",
+)
+
+def _used_general_knowledge(answer_text: str) -> bool:
+    lowered = (answer_text or "").lower()
+    return any(marker in lowered for marker in _GENERAL_KNOWLEDGE_MARKERS)
 
 bm25_retriever = None
 ensemble_retriever = None
@@ -132,17 +146,28 @@ def get_rag_status():
     }
 
 def query_rag_service(prompt: str, chat_history: list = None):
-    """Executes a full RAG query."""
+    """Executes a full RAG query.
+
+    When no documents are indexed at all, falls back to answering from the LLM's
+    own general knowledge (clearly a different code path from the normal RAG
+    answer, which itself is also instructed to fall back to general knowledge,
+    clearly labeled, whenever the retrieved context doesn't cover the question).
+    """
     global compression_retriever, ensemble_retriever
     active_retriever = compression_retriever if compression_retriever is not None else ensemble_retriever
-    if active_retriever is None:
-        raise ValueError("No documents have been indexed yet. Please upload files first.")
 
     formatted_history = ""
     if chat_history:
         for msg in chat_history:
             role_label = "Human" if msg.role == "user" else "Assistant"
             formatted_history += f"{role_label}: {msg.content}\n"
+
+    if active_retriever is None:
+        try:
+            answer = no_context_chain.invoke({"chat_history": formatted_history, "question": prompt})
+        except Exception as e:
+            raise RuntimeError(f"Error generating answer from LLM: {e}")
+        return {"status": "success", "answer": answer, "citations": []}
 
     rewritten_prompt = prompt
     if chat_history:
@@ -184,6 +209,11 @@ def query_rag_service(prompt: str, chat_history: list = None):
     except Exception as e:
         raise RuntimeError(f"Error generating answer from LLM: {e}")
 
+    # If the model fell back to general knowledge, the retrieved chunks weren't
+    # actually the source of the answer — don't present them as if they were.
+    if _used_general_knowledge(answer):
+        citations = []
+
     return {
         "status": "success",
         "answer": answer,
@@ -191,18 +221,31 @@ def query_rag_service(prompt: str, chat_history: list = None):
     }
 
 def stream_query_rag_service(prompt: str, chat_history: list = None):
-    """Executes streaming RAG query yielding SSE events."""
+    """Executes streaming RAG query yielding SSE events.
+
+    When no documents are indexed at all, streams a general-knowledge answer
+    instead of erroring out — same fallback principle as query_rag_service().
+    """
     global compression_retriever, ensemble_retriever
     active_retriever = compression_retriever if compression_retriever is not None else ensemble_retriever
-    if active_retriever is None:
-        yield f"data: {json.dumps({'type': 'error', 'content': 'No documents have been indexed yet. Please upload files first.'})}\n\n"
-        return
 
     formatted_history = ""
     if chat_history:
         for msg in chat_history:
             role_label = "Human" if msg.role == "user" else "Assistant"
             formatted_history += f"{role_label}: {msg.content}\n"
+
+    if active_retriever is None:
+        yield f"data: {json.dumps({'type': 'citations', 'citations': []})}\n\n"
+        try:
+            for chunk in no_context_chain.stream({"chat_history": formatted_history, "question": prompt}):
+                if chunk:
+                    yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'content': f'Error generating answer: {e}'})}\n\n"
+            return
+        yield f"data: {json.dumps({'type': 'end'})}\n\n"
+        return
 
     rewritten_prompt = prompt
     if chat_history:
@@ -234,8 +277,20 @@ def stream_query_rag_service(prompt: str, chat_history: list = None):
             "snippet": doc.page_content[:200] + "..."
         })
 
-    yield f"data: {json.dumps({'type': 'citations', 'citations': citations})}\n\n"
+    # Citations aren't sent immediately: if the model ends up falling back to
+    # general knowledge (because the retrieved chunks didn't actually cover the
+    # question), those chunks must NOT be shown as the answer's source. So the
+    # first ~160 characters of the answer are buffered just long enough to check
+    # for the fallback marker before committing to a citations list — after that,
+    # tokens stream through live as before.
     context_text = "\n\n".join(context_chunks)
+    BUFFER_DECISION_LIMIT = 160
+    buffer = ""
+    decided = False
+
+    def _flush_decision(buffered_text: str):
+        final_citations = [] if _used_general_knowledge(buffered_text) else citations
+        return f"data: {json.dumps({'type': 'citations', 'citations': final_citations})}\n\n"
 
     try:
         for chunk in rag_chain.stream({
@@ -243,8 +298,23 @@ def stream_query_rag_service(prompt: str, chat_history: list = None):
             "chat_history": formatted_history,
             "question": prompt
         }):
-            if chunk:
+            if not chunk:
+                continue
+            if not decided:
+                buffer += chunk
+                if _used_general_knowledge(buffer) or len(buffer) >= BUFFER_DECISION_LIMIT:
+                    decided = True
+                    yield _flush_decision(buffer)
+                    yield f"data: {json.dumps({'type': 'token', 'content': buffer})}\n\n"
+                    buffer = ""
+            else:
                 yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
+
+        if not decided:
+            # The whole answer was shorter than the buffer limit — decide now.
+            yield _flush_decision(buffer)
+            if buffer:
+                yield f"data: {json.dumps({'type': 'token', 'content': buffer})}\n\n"
     except Exception as e:
         yield f"data: {json.dumps({'type': 'error', 'content': f'Error generating answer: {e}'})}\n\n"
         return

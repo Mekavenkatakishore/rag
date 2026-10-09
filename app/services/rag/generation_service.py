@@ -20,9 +20,20 @@ Standalone Question:
 condense_chain = condense_prompt_template | llm | StrOutputParser()
 
 prompt_template = ChatPromptTemplate.from_template("""
-You are an intelligent organizational playbook and troubleshooting assistant. 
-Answer the user's question using ONLY the provided context.
-If the answer is not in the context, say "I don't know based on the provided documents."
+You are an intelligent organizational playbook and troubleshooting assistant.
+
+Use the Context below as your primary source. If it fully or partially answers the question,
+base your answer on it and do not contradict it.
+
+If the Context does NOT contain information relevant to the question, do this instead:
+1. Say plainly that it wasn't found in the uploaded documents (e.g. "I couldn't find this in your
+   uploaded documents.").
+2. Then answer the question using your own general knowledge, clearly introduced with a label such
+   as "Based on general knowledge:" so the user can tell this part did not come from their
+   documents.
+
+Never present a general-knowledge answer as if it came from the documents, and never invent or
+imply a document citation for something the Context does not actually contain.
 
 Context:
 {context}
@@ -37,3 +48,23 @@ Answer:
 """)
 
 rag_chain = prompt_template | llm | StrOutputParser()
+
+# Used when there is no document index at all yet (nothing uploaded) — lets the
+# assistant still answer from general knowledge instead of refusing outright.
+no_context_prompt_template = ChatPromptTemplate.from_template("""
+You are a helpful assistant. No documents have been uploaded to the knowledge base yet, so there
+is no document context available for this question.
+
+Briefly note that no documents are indexed yet, then answer the question as best you can using
+your own general knowledge.
+
+Conversation History:
+{chat_history}
+
+Question:
+{question}
+
+Answer:
+""")
+
+no_context_chain = no_context_prompt_template | llm | StrOutputParser()

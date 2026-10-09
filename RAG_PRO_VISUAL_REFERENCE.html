@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Pro — Visual Architecture Reference</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121820; --panel-2:#161e29; --border:#263241;
+    --text:#e7edf5; --muted:#9fb0c3; --accent:#5ab0ff; --accent-2:#7ee0c3;
+    --warn:#ffb86b; --danger:#ff6b6b; --chip:#1b2531;
+    --font: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f5f7fa; --panel:#ffffff; --panel-2:#eef2f7; --border:#d7dee6;
+      --text:#13202e; --muted:#51647a; --accent:#1368c7; --accent-2:#0e8f6c;
+      --warn:#9a5b00; --danger:#b3261e; --chip:#eef2f7;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f5f7fa; --panel:#ffffff; --panel-2:#eef2f7; --border:#d7dee6;
+    --text:#13202e; --muted:#51647a; --accent:#1368c7; --accent-2:#0e8f6c;
+    --warn:#9a5b00; --danger:#b3261e; --chip:#eef2f7;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text); font-family:var(--font);
+    line-height:1.5;
+  }
+  header{
+    position:sticky; top:0; z-index:50; background:var(--panel); border-bottom:1px solid var(--border);
+    padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+  }
+  header h1{font-size:17px; margin:0; font-weight:700;}
+  header .sub{color:var(--muted); font-size:12.5px;}
+  .toolbar{display:flex; gap:8px; align-items:center;}
+  button{
+    background:var(--chip); color:var(--text); border:1px solid var(--border); border-radius:8px;
+    padding:6px 12px; font-size:12.5px; cursor:pointer;
+  }
+  button:hover{border-color:var(--accent);}
+  nav.toc{
+    display:flex; flex-wrap:wrap; gap:6px; padding:12px 20px; background:var(--panel-2);
+    border-bottom:1px solid var(--border); position:sticky; top:57px; z-index:40;
+  }
+  nav.toc a{
+    color:var(--muted); text-decoration:none; font-size:12px; padding:5px 10px; border-radius:999px;
+    border:1px solid var(--border); white-space:nowrap;
+  }
+  nav.toc a:hover{ color:var(--text); border-color:var(--accent); }
+  main{max-width:1180px; margin:0 auto; padding:24px 20px 80px;}
+  section{margin-bottom:46px; scroll-margin-top:120px;}
+  h2{
+    font-size:19px; display:flex; align-items:center; gap:10px; margin:0 0 4px;
+  }
+  h2 .num{
+    background:var(--accent); color:#06121f; font-weight:800; font-size:12px;
+    width:24px; height:24px; border-radius:7px; display:flex; align-items:center; justify-content:center;
+  }
+  .lead{color:var(--muted); font-size:13.5px; margin:4px 0 16px;}
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:18px;
+    overflow-x:auto;
+  }
+  .mermaid{display:flex; justify-content:center;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media (max-width: 900px){ .grid2{grid-template-columns:1fr;} }
+  table{border-collapse:collapse; width:100%; font-size:12.8px;}
+  th, td{border:1px solid var(--border); padding:8px 10px; text-align:left; vertical-align:top;}
+  th{background:var(--panel-2); color:var(--muted); font-weight:600;}
+  tr:hover td{background:var(--panel-2);}
+  code{
+    background:var(--chip); border:1px solid var(--border); border-radius:5px; padding:1px 6px;
+    font-size:12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+  .chip{
+    background:var(--chip); border:1px solid var(--border); border-radius:999px; padding:5px 12px; font-size:12px;
+  }
+  .chip.warn{border-color:var(--warn); color:var(--warn);}
+  .chip.danger{border-color:var(--danger); color:var(--danger);}
+  .flag{
+    display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700;
+    padding:2px 9px; border-radius:999px; margin-left:6px;
+  }
+  .flag.ok{background:rgba(126,224,195,0.12); color:var(--accent-2); border:1px solid var(--accent-2);}
+  .flag.broken{background:rgba(255,107,107,0.12); color:var(--danger); border:1px solid var(--danger);}
+  .flag.not{background:rgba(255,184,107,0.12); color:var(--warn); border:1px solid var(--warn);}
+  .callout{
+    border-left:3px solid var(--danger); background:var(--panel-2); padding:10px 14px; border-radius:0 10px 10px 0;
+    font-size:12.8px; margin-top:12px;
+  }
+  .callout.warn{border-left-color:var(--warn);}
+  .callout b{color:var(--text);}
+  footer{
+    text-align:center; color:var(--muted); font-size:11.5px; padding:30px 20px; border-top:1px solid var(--border);
+  }
+  a{color:var(--accent);}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>RAG Pro — Visual Architecture Reference</h1>
+    <div class="sub">Codebase-grounded diagrams · companion to RAG_PRO_ARCHITECTURE.md</div>
+  </div>
+  <div class="toolbar">
+    <button id="themeToggle">Toggle theme</button>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#overview">System Overview</a>
+  <a href="#ingestion">Ingestion Pipeline</a>
+  <a href="#query">RAG Query Pipeline</a>
+  <a href="#hr">HR Matching Pipeline</a>
+  <a href="#sequences">Sequence Diagrams</a>
+  <a href="#agent">Agent Graph</a>
+  <a href="#data">Data Stores</a>
+  <a href="#api">API Map</a>
+  <a href="#stack">Tech Stack</a>
+  <a href="#gaps">Known Gaps</a>
+</nav>
+
+<main>
+
+<section id="overview">
+  <h2><span class="num">1</span>System Component Overview</h2>
+  <p class="lead">One FastAPI process serves a static frontend, a RAG chatbot, an HR candidate matcher, and a LangGraph agent — all sharing one SQLite pair, one Chroma collection, and one Groq LLM client factory.</p>
+  <div class="panel">
+    <pre class="mermaid">
+flowchart TB
+    FE["Static Frontend<br/>index.html / app.js / style.css"]
+
+    subgraph SRV["FastAPI process — server.py"]
+      API["API Layer<br/>endpoints.py · auth.py · agent_endpoints.py · hr_endpoints.py"]
+      SVC["Service Layer<br/>app/services/rag · app/services/hr"]
+      AGT["LangGraph Agent<br/>app/agent"]
+    end
+
+    DB1[("SQLite<br/>users.db")]
+    DB2[("SQLite<br/>hr_system.db")]
+    VEC[("ChromaDB<br/>chroma_db/ (shared collection)")]
+    BM25[("BM25 cache<br/>bm25_cache.pkl")]
+    FS[("Local filesystem<br/>uploaded_files/")]
+    LLM["Groq LLM API"]
+    RR["FlashRank reranker"]
+
+    FE <-->|"REST + SSE, Bearer JWT"| API
+    API --> SVC
+    API --> AGT
+    AGT --> SVC
+    SVC --> DB1
+    SVC --> DB2
+    SVC --> VEC
+    SVC --> BM25
+    SVC --> FS
+    SVC --> LLM
+    SVC --> RR
+
+    style SRV fill:#1b2531,stroke:#5ab0ff,color:#e7edf5
+    style FE fill:#162029,stroke:#7ee0c3,color:#e7edf5
+    style LLM fill:#2a1b31,stroke:#c88cff,color:#e7edf5
+    style RR fill:#2a1b31,stroke:#c88cff,color:#e7edf5
+    </pre>
+  </div>
+  <div class="callout">
+    <b>No Docker / CI / Redis exist in this codebase.</b> Everything above runs in a single Uvicorn process with in-process caching only.
+  </div>
+</section>
+
+<section id="ingestion">
+  <h2><span class="num">2</span>Document Ingestion Pipeline</h2>
+  <p class="lead">Runs on <code>POST /upload</code> and automatically at startup for any new/changed file in <code>uploaded_files/</code>.</p>
+  <div class="panel">
+    <pre class="mermaid">
+flowchart LR
+    D["Document<br/>(.pdf .docx .txt .csv .pptx .html .md)"] --> LD["Loader Factory<br/>app/loaders/*"]
+    LD --> MD["Metadata Tagging<br/>filename · page · source · upload_timestamp"]
+    MD --> CH{"Chunking Strategy"}
+    CH -->|"default"| R["RecursiveCharacterTextSplitter<br/>size=1000 overlap=200"]
+    CH -->|"CHUNKING_STRATEGY=semantic"| S["SemanticChunker<br/>embedding-distance breakpoints"]
+    R --> EMB["HuggingFace Embeddings<br/>all-MiniLM-L6-v2 (384-dim)"]
+    S --> EMB
+    EMB --> VS[("Chroma vectorstore.add_documents()")]
+    VS --> REG["index_registry.json updated<br/>(mtime bookkeeping)"]
+    VS --> BM["BM25 index rebuilt<br/>→ bm25_cache.pkl"]
+    </pre>
+  </div>
+</section>
+
+<section id="query">
+  <h2><span class="num">3</span>RAG Query Pipeline (Hybrid Retrieval)</h2>
+  <p class="lead">The actual retrieval path traced from <code>rag_service.py::stream_query_rag_service()</code> — not an assumed textbook RAG flow.</p>
+  <div class="panel">
+    <pre class="mermaid">
+flowchart LR
+    Q["User Question<br/>+ chat_history"] --> COND{"History present?"}
+    COND -->|"yes"| CND["Condense chain<br/>Groq LLM → standalone question"]
+    COND -->|"no"| EMBQ
+    CND --> EMBQ["Embed question<br/>(implicit, MiniLM)"]
+    EMBQ --> DENSE["Dense search<br/>Chroma k=15"]
+    EMBQ --> BM25Q["BM25 search<br/>k=15"]
+    DENSE --> ENS["EnsembleRetriever<br/>weighted fusion 0.5 / 0.5"]
+    BM25Q --> ENS
+    ENS --> RRK["FlashRank rerank<br/>→ top 4 (RERANKER_TOP_N)"]
+    RRK --> CIT["Build citations<br/>{source, page, snippet}"]
+    RRK --> CTX["Assemble context"]
+    CTX --> PR["rag_chain prompt<br/>context + history + question"]
+    PR --> LLM2["Groq LLM (stream)"]
+    LLM2 --> SSE["SSE: citations → token* → end"]
+    </pre>
+  </div>
+  <div class="chips">
+    <span class="chip">k=15 per sub-retriever</span>
+    <span class="chip">weights 0.5 / 0.5</span>
+    <span class="chip">rerank top_n=4</span>
+    <span class="chip warn">no similarity threshold configured</span>
+    <span class="chip warn">RERANKER_MODEL setting unused by FlashRank</span>
+  </div>
+</section>
+
+<section id="hr">
+  <h2><span class="num">4</span>HR Candidate Matching Pipeline</h2>
+  <p class="lead">Reuses the same chunker + Chroma collection as general RAG, disambiguated by <code>candidate_id</code> metadata. Scoring math is deterministic; only the evidence extraction step is LLM-driven.</p>
+  <div class="panel">
+    <pre class="mermaid">
+flowchart TB
+    JD["Job Description upload"] --> JDP["jd_parser_service<br/>Groq LLM → structured JSON"]
+    JDP --> NORM1["skill_normalizer<br/>static ~90-entry map"]
+    NORM1 --> JOBROW[("hr_jobs.jd_parsed_json")]
+
+    RES["Resume batch upload"] --> RP["resume_parser_service<br/>extract → chunk → tag candidate_id"]
+    RP --> VEC2[("Chroma — same shared collection")]
+
+    TRIGGER["POST /analyze (sequential per candidate)"] --> EV["Evidence retrieval<br/>vector search filtered by candidate_id"]
+    VEC2 --> EV
+    EV --> FR2["FlashRank rerank → top 6 passages"]
+    FR2 --> LLMX["Groq LLM: extract skills / experience /<br/>education / evidence quotes (JSON)"]
+    JOBROW --> LLMX
+    LLMX --> GUARD["Hallucination guard:<br/>missing-skills recomputed as set-difference<br/>vs ground-truth JD skills (LLM output discarded)"]
+    GUARD --> SCORE["scoring_engine.calculate_candidate_score()<br/>deterministic weighted formula"]
+    SCORE --> PERSIST[("hr_candidate_scores / _profiles / _evidence")]
+    PERSIST --> LB["GET /leaderboard<br/>SQL join + Python rank"]
+    </pre>
+  </div>
+  <div class="panel" style="margin-top:14px;">
+    <table>
+      <tr><th>Score Component</th><th>Weight</th><th>Logic</th></tr>
+      <tr><td>Required skills</td><td>40%</td><td>set-intersection ratio vs JD required skills</td></tr>
+      <tr><td>Experience</td><td>25%</td><td>100 if meets min years, else linear ratio</td></tr>
+      <tr><td>Project relevance</td><td>15%</td><td>keyword bucket (high/medium/low) from LLM text</td></tr>
+      <tr><td>Preferred skills</td><td>10%</td><td>set-intersection ratio vs JD preferred skills</td></tr>
+      <tr><td>Education</td><td>5%</td><td>boolean flag from LLM extraction</td></tr>
+      <tr><td>"Domain fit"</td><td>5%</td><td><span class="flag broken">mislabeled</span> reuses experience-fit string, JD's actual <code>domain</code> field is never read</td></tr>
+    </table>
+  </div>
+  <div class="callout">
+    <b>Fit thresholds:</b> ≥80 Strong Fit · ≥60 Moderate Fit · &lt;60 Weak Fit.
+    <b>Chunk page numbers for resumes are synthetic</b> (<code>idx // 3 + 1</code>), not real PDF pages.
+  </div>
+</section>
+
+<section id="sequences">
+  <h2><span class="num">5</span>Sequence Diagrams</h2>
+  <div class="grid2">
+    <div class="panel">
+      <strong>A. Document Upload</strong>
+      <pre class="mermaid">
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant A as API /upload
+    participant L as Loader
+    participant V as Chroma
+    U->>F: drag/select file
+    F->>A: XHR POST /upload (Bearer JWT)
+    A->>A: validate extension + size
+    A->>L: get_document_loader(path)
+    L-->>A: Document list
+    A->>A: chunk + embed
+    A->>V: add_documents(chunks)
+    A->>A: update registry + BM25 cache
+    A-->>F: {status, total_chunks}
+      </pre>
+    </div>
+    <div class="panel">
+      <strong>B. RAG Chat Query (SSE)</strong>
+      <pre class="mermaid">
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant A as API /query/stream
+    participant R as Hybrid Retriever
+    participant G as Groq LLM
+    U->>F: ask question
+    F->>A: POST /query/stream
+    A->>R: invoke(question)
+    R-->>A: top 4 reranked chunks
+    A-->>F: SSE: citations
+    A->>G: stream(context, question)
+    G-->>A: tokens
+    A-->>F: SSE: token*, end
+      </pre>
+    </div>
+  </div>
+  <div class="panel" style="margin-top:16px;">
+    <strong>C. HR Candidate Analysis</strong>
+    <pre class="mermaid">
+sequenceDiagram
+    participant U as Recruiter
+    participant A as API /hr/jobs/{id}/analyze
+    participant Ev as Evidence Service
+    participant V as Chroma
+    participant G as Groq LLM
+    participant S as Scoring Engine
+    participant D as hr_system.db
+    U->>A: "Run AI Matching"
+    loop per candidate (sequential, not batched)
+        A->>Ev: retrieve_candidate_evidence(candidate_id)
+        Ev->>V: filtered similarity search
+        Ev-->>A: reranked evidence (top 6)
+        A->>G: extract skills/experience/education
+        G-->>A: structured JSON
+        A->>S: calculate_candidate_score()
+        S-->>A: final_score, fit_category
+        A->>D: persist profile/score/evidence
+    end
+    A-->>U: ranked results
+    </pre>
+    <div class="callout warn"><b>Note:</b> a concurrent <code>asyncio.gather</code>-based batch analyzer exists in <code>batch_processing_service.py</code> but is only wired into the dead v2 API — the live route above runs strictly sequentially.</div>
+  </div>
+</section>
+
+<section id="agent">
+  <h2><span class="num">6</span>LangGraph Agent Flow</h2>
+  <p class="lead"><code>route_by_intent</code> always returns the same node — actual branching happens via if/elif inside <code>tool_execution_node</code>, not graph conditional edges.</p>
+  <div class="panel">
+    <pre class="mermaid">
+flowchart LR
+    START((START)) --> AN["analyze_query_node<br/>Groq intent classification (temp=0.0)"]
+    AN --> RT["route_by_intent<br/>(always → tool_execution_node)"]
+    RT --> TE{"tool_execution_node<br/>if/elif on intent"}
+    TE -->|"PLAYBOOK_QA / GENERAL"| T1["search_hr_knowledge<br/>→ calls RAG query pipeline"]
+    TE -->|"CANDIDATE_MATCHING"| T2["match_candidates"]
+    TE -->|"CANDIDATE_DETAILS"| T3["get_candidate_details / evidence"]
+    TE -->|"INTERVIEW_GEN"| T4["generate_interview_questions"]
+    TE -->|"EMAIL_GEN"| T5["draft_candidate_email"]
+    TE -->|"HR_ACTION"| T6["send_candidate_email<br/>(human approval gate)"]
+    T1 --> RG["response_generation_node<br/>(passthrough, no further LLM step)"]
+    T2 --> RG
+    T3 --> RG
+    T4 --> RG
+    T5 --> RG
+    T6 -->|"approval pending"| HOLD["MemorySaver checkpoint<br/>awaiting /agent/approve or /reject"]
+    HOLD --> RG
+    RG --> END((END))
+    </pre>
+  </div>
+  <div class="callout warn"><b>MemorySaver is in-memory only</b> — a server restart during a pending human-approval step silently loses that state.</div>
+</section>
+
+<section id="data">
+  <h2><span class="num">7</span>Data Store Responsibilities</h2>
+  <div class="panel">
+    <pre class="mermaid">
+flowchart TB
+    subgraph Relational["SQLite (raw sqlite3, no ORM)"]
+      U1[("users.db<br/>id · username · email · hashed_password · salt")]
+      H1[("hr_system.db<br/>hr_jobs · hr_candidates · hr_candidate_profiles<br/>hr_candidate_scores · hr_candidate_evidence")]
+    end
+    subgraph Vector["ChromaDB — chroma_db/"]
+      V1[("Single shared collection<br/>general RAG chunks + HR resume chunks<br/>disambiguated by metadata only")]
+    end
+    subgraph Files["Local Filesystem"]
+      F1[("uploaded_files/ · uploaded_files/jd/ · uploaded_files/resumes/")]
+    end
+    subgraph Ephemeral["In-process cache (lost on restart, except pickle)"]
+      C1[("bm25_cache.pkl — persists across restarts")]
+      C2[("HR evidence cache — dict, 128 entries, FIFO evict")]
+    end
+    </pre>
+  </div>
+  <div class="callout"><b>No per-user vector isolation:</b> every authenticated user can retrieve every document in the shared Chroma collection. <b>No foreign keys</b> anywhere in the SQLite schema — relationships are convention-only.</div>
+</section>
+
+<section id="api">
+  <h2><span class="num">8</span>API Surface Map</h2>
+  <div class="panel">
+    <table>
+      <tr><th>Group</th><th>Routes</th><th>Status</th></tr>
+      <tr><td>Auth <code>/auth</code></td><td><code>POST /register</code> · <code>POST /login</code> · <code>GET /me</code></td><td><span class="flag ok">live</span></td></tr>
+      <tr><td>RAG <code>/</code></td><td><code>POST /upload</code> · <code>GET /status</code> · <code>POST /query</code> · <code>POST /query/stream</code> · <code>DELETE /files/{f}</code></td><td><span class="flag ok">live</span></td></tr>
+      <tr><td>Agent <code>/agent</code></td><td><code>POST /chat</code> · <code>POST /approve</code> · <code>POST /reject</code> · <code>GET /status/{thread_id}</code></td><td><span class="flag ok">live</span></td></tr>
+      <tr><td>HR v1 <code>/hr</code></td><td><code>jobs</code>, <code>upload-jd</code>, <code>upload-resumes</code>, <code>analyze</code>, <code>leaderboard</code>, <code>shortlist</code>, <code>candidates/{id}</code>, <code>resume-preview</code>, <code>clear</code>, legacy <code>default_job_001</code> routes</td><td><span class="flag ok">live</span></td></tr>
+      <tr><td>HR v1 <code>/hr</code></td><td><code>POST /jobs/{id}/chat</code></td><td><span class="flag broken">500s always</span></td></tr>
+      <tr><td>HR v2 (unmounted)</td><td><code>compare</code>, <code>insights</code>, <code>export/leaderboard</code>, <code>stats</code>, batched <code>analyze</code>, <code>chat</code></td><td><span class="flag broken">not importable</span></td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="stack">
+  <h2><span class="num">9</span>Technology Stack</h2>
+  <div class="chips">
+    <span class="chip">FastAPI</span><span class="chip">Uvicorn</span><span class="chip">Vanilla JS (no framework)</span>
+    <span class="chip">SQLite (raw sqlite3)</span><span class="chip">ChromaDB</span><span class="chip">rank_bm25</span>
+    <span class="chip">HuggingFace MiniLM-L6-v2</span><span class="chip">FlashRank</span><span class="chip">LangChain / langchain-classic</span>
+    <span class="chip">LangGraph + MemorySaver</span><span class="chip">Groq (llama-3.3-70b-versatile)</span>
+    <span class="chip">PyJWT + PBKDF2</span><span class="chip">pypdf / docx2txt / unstructured</span>
+    <span class="chip danger">No Docker</span><span class="chip danger">No CI/CD</span><span class="chip danger">No Redis</span>
+  </div>
+</section>
+
+<section id="gaps">
+  <h2><span class="num">10</span>Known Gaps at a Glance</h2>
+  <div class="panel">
+    <table>
+      <tr><th>Issue</th><th>Impact</th></tr>
+      <tr><td>HR chat endpoint crashes (wrong attribute path)</td><td>Advertised "chat with candidates" feature unusable</td></tr>
+      <tr><td>hr_endpoints_v2.py import chain broken (typo'd module)</td><td>All "Phase 2+" features dead despite docs calling them production-ready</td></tr>
+      <tr><td>No ownership checks on job_id / candidate_id</td><td>Any authenticated user can read/modify any other user's HR data</td></tr>
+      <tr><td>Single shared Chroma collection</td><td>No per-user document isolation in the RAG chatbot</td></tr>
+      <tr><td>CORS wildcard + credentials, hardcoded default JWT secret</td><td>Two concrete security gaps if deployed as-is</td></tr>
+      <tr><td>README describes Docker/CI that doesn't exist</td><td>Documentation/reality mismatch</td></tr>
+      <tr><td>Sequential (not batched) live candidate analysis</td><td>10x-faster async implementation exists but is unreachable</td></tr>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  RAG Pro — generated reference diagrams, derived from a direct source-code audit. See <code>RAG_PRO_ARCHITECTURE.md</code> for the full prose documentation.
+</footer>
+
+<script>
+  function currentMermaidTheme(){
+    const explicit = document.documentElement.getAttribute('data-theme');
+    if (explicit === 'light') return 'default';
+    if (explicit === 'dark') return 'dark';
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'default' : 'dark';
+  }
+  function renderMermaid(){
+    mermaid.initialize({ startOnLoad:false, theme: currentMermaidTheme(), securityLevel:'loose',
+      flowchart:{ curve:'basis' } });
+    document.querySelectorAll('.mermaid').forEach((el, i) => {
+      if (!el.getAttribute('data-raw')) el.setAttribute('data-raw', el.textContent);
+    });
+    const nodes = Array.from(document.querySelectorAll('.mermaid'));
+    nodes.forEach(el => { el.removeAttribute('data-processed'); el.innerHTML = el.getAttribute('data-raw'); });
+    mermaid.run({ nodes });
+  }
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur === 'dark' ? 'light' : (cur === 'light' ? null : 'dark');
+    if (next) document.documentElement.setAttribute('data-theme', next);
+    else document.documentElement.removeAttribute('data-theme');
+    renderMermaid();
+  });
+  renderMermaid();
+</script>
+
+</body>
+</html>

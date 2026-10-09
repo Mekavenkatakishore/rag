@@ -15,8 +15,31 @@ from app.utils.logger import logger
 RESUME_DIR = os.path.join(settings.UPLOAD_DIR, "resumes")
 JD_DIR = os.path.join(settings.UPLOAD_DIR, "jd")
 
+def _jd_has_scorable_requirements(jd_requirements: dict) -> bool:
+    """True if the JD specifies at least one required/preferred skill or a minimum experience.
+
+    An empty/unparsed JD (e.g. no JD was ever uploaded for this job, or parsing failed) has none
+    of these — running candidate analysis against it produces a meaningless, inflated score for
+    every candidate, so callers should refuse to analyze until a real JD is parsed.
+    """
+    if (jd_requirements or {}).get("required_skills"):
+        return True
+    if (jd_requirements or {}).get("preferred_skills"):
+        return True
+    if float((jd_requirements or {}).get("min_experience_years", 0) or 0) > 0:
+        return True
+    return False
+
+
 def analyze_and_score_candidate(job_id: str, candidate_id: str, candidate_name: str, filename: str, jd_requirements: dict) -> dict:
     """Evaluates candidate evidence chunks, computes score, and updates DB."""
+    if not _jd_has_scorable_requirements(jd_requirements):
+        raise ValueError(
+            f"Job '{job_id}' has no parsed job description (no required/preferred skills or "
+            "minimum experience found). Upload and parse a job description for this job before "
+            "running candidate analysis."
+        )
+
     llm = get_llm(temperature=0.1)
 
     evidence_docs = retrieve_candidate_evidence(job_id, candidate_id, jd_requirements)
@@ -142,7 +165,7 @@ Return ONLY a JSON object formatted exactly as:
 
     # Calculate Deterministic Match Score (100% Python Application Math)
     jd_req_normalized = {**jd_requirements, "required_skills": normalized_req_skills, "preferred_skills": normalized_pref_skills}
-    scoring_result = calculate_candidate_score(analysis, jd_req_normalized)
+    scoring_result = calculate_candidate_score(analysis, jd_req_normalized, evidence_text=combined_evidence_text)
     final_score = scoring_result["final_score"]
     fit_category = scoring_result["fit_category"]
     score_breakdown = scoring_result["score_breakdown"]
@@ -168,8 +191,15 @@ def analyze_all_job_candidates(job_id: str) -> list[dict]:
         raise ValueError(f"Job ID '{job_id}' not found.")
         
     jd_requirements = job.get("jd_parsed", {})
+    if not _jd_has_scorable_requirements(jd_requirements):
+        raise ValueError(
+            f"Job '{job_id}' has no parsed job description (no required/preferred skills or "
+            "minimum experience found). Upload and parse a job description for this job before "
+            "running candidate analysis."
+        )
+
     candidates = hr_db.get_job_candidates(job_id)
-    
+
     results = []
     for cand in candidates:
         cand_id = cand["candidate_id"]

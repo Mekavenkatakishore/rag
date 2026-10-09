@@ -36,6 +36,74 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
 
     // ═══════════════════════════════════════════════════════════════════════
+    //  TOAST NOTIFICATIONS — single surface for every error/success message.
+    //  Any request that fails (network error, 4xx, 5xx) should end up here so
+    //  the user always sees what went wrong, instead of it only landing in
+    //  the browser console.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function getToastContainer() {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
+        return container;
+    }
+
+    const TOAST_ICONS = {
+        error: 'alert-circle',
+        success: 'check-circle',
+        warning: 'alert-triangle'
+    };
+
+    function showToast(message, type = 'error', duration = 6000) {
+        const container = getToastContainer();
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `
+            <i data-lucide="${TOAST_ICONS[type] || 'info'}" class="toast-icon"></i>
+            <div class="toast-message"></div>
+            <button class="toast-close" aria-label="Dismiss"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
+        `;
+        // Set text via textContent (not innerHTML) so error messages from the
+        // server can never inject HTML/script into the page.
+        toast.querySelector('.toast-message').textContent = message;
+        container.appendChild(toast);
+        lucide.createIcons();
+
+        const remove = () => {
+            toast.classList.add('toast-exit');
+            setTimeout(() => toast.remove(), 200);
+        };
+        toast.querySelector('.toast-close').addEventListener('click', remove);
+        if (duration > 0) setTimeout(remove, duration);
+        return toast;
+    }
+
+    function showErrorToast(message) { return showToast(message, 'error'); }
+    function showSuccessToast(message) { return showToast(message, 'success', 4000); }
+
+    /**
+     * Extracts a human-readable error message from an API response body,
+     * regardless of which shape produced it:
+     *  - the new global envelope: {status:"error", message:"..."}
+     *  - FastAPI's default HTTPException shape: {detail:"..."}
+     *  - FastAPI/Pydantic validation errors: {detail:[{loc, msg}, ...]}
+     */
+    function extractErrorMessage(data, fallback = 'Something went wrong. Please try again.') {
+        if (!data) return fallback;
+        if (typeof data.message === 'string' && data.message) return data.message;
+        if (typeof data.detail === 'string' && data.detail) return data.detail;
+        if (Array.isArray(data.detail)) {
+            return data.detail.map(e => e.msg || JSON.stringify(e)).join(' ') || fallback;
+        }
+        return fallback;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     //  AUTH LOGIC
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -215,6 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof addMessage === 'function') {
             addMessage('bot', '⚠️ Your session has expired. Please log in again.');
         }
+        showToast('Your session has expired. Please log in again.', 'warning');
         showAuthModal();
     }
 
@@ -243,6 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Status fetch error:', error);
             indexStatus.className = 'status-badge';
             indexStatus.querySelector('.status-text').textContent = 'Server Offline';
+            showErrorToast('Could not reach the server to check document index status.');
         }
     }
 
@@ -303,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
 
             if (!res.ok) {
-                alert(`Error: ${data.detail || 'Failed to delete file.'}`);
+                showErrorToast(extractErrorMessage(data, 'Failed to delete file.'));
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = '<i data-lucide="trash-2"></i>';
@@ -321,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (err) {
             console.error('Delete error:', err);
-            alert('Network error while deleting file.');
+            showErrorToast('Network error while deleting file.');
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = '<i data-lucide="trash-2"></i>';
@@ -411,9 +481,10 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 let errorMsg = 'Failed to index file.';
                 try {
-                    errorMsg = JSON.parse(xhr.responseText).detail || errorMsg;
+                    errorMsg = extractErrorMessage(JSON.parse(xhr.responseText), errorMsg);
                 } catch(e) {}
                 addMessage('bot', `❌ Error: ${errorMsg}`);
+                showErrorToast(`Upload failed: ${errorMsg}`);
                 updateServerStatus();
             }
         };
@@ -421,6 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
         xhr.onerror = () => {
             uploadProgressContainer.style.display = 'none';
             addMessage('bot', `❌ Network error occurred while uploading.`);
+            showErrorToast('Network error occurred while uploading the document.');
             updateServerStatus();
         };
 
@@ -799,11 +871,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 if (statusEl) statusEl.textContent = `Uploaded ${data.total_files} candidate resume(s). Click 'Run AI Matching'.`;
             } else {
-                if (statusEl) statusEl.textContent = `Error: ${data.detail || 'Upload failed'}`;
+                const msg = extractErrorMessage(data, 'Upload failed');
+                if (statusEl) statusEl.textContent = `Error: ${msg}`;
+                showErrorToast(`Resume upload failed: ${msg}`);
             }
         } catch (err) {
             console.error("Batch resume upload error:", err);
             if (statusEl) statusEl.textContent = `Batch upload failed: ${err.message || err}`;
+            showErrorToast('Resume upload failed: could not reach the server.');
         }
     }
 
@@ -854,11 +929,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (statusEl) statusEl.textContent = `Active JD: ${data.filename}`;
                 renderJDRequirements(activeJDInfo);
             } else {
-                if (statusEl) statusEl.textContent = `Error: ${data.detail || 'Upload failed'}`;
+                const msg = extractErrorMessage(data, 'Upload failed');
+                if (statusEl) statusEl.textContent = `Error: ${msg}`;
+                showErrorToast(`Job description upload failed: ${msg}`);
             }
         } catch (err) {
             console.error("JD upload error:", err);
             if (statusEl) statusEl.textContent = `Upload failed: ${err.message || err}`;
+            showErrorToast('Job description upload failed: could not reach the server.');
         }
     }
 
@@ -951,11 +1029,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if (res.ok) {
                 renderLeaderboard(data.leaderboard || []);
+                showSuccessToast(`Analysis complete — scored ${data.total_candidates || 0} candidate(s).`);
             } else {
-                alert(`Evaluation failed: ${data.detail || 'Error'}`);
+                showErrorToast(extractErrorMessage(data, 'Candidate evaluation failed.'));
             }
         } catch (err) {
-            alert("Evaluation request failed.");
+            console.error("Evaluation request error:", err);
+            showErrorToast('Evaluation request failed: could not reach the server.');
         } finally {
             if (btn) btn.disabled = false;
         }
@@ -972,9 +1052,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 allLoadedCandidates = data.candidates || [];
                 applyLeaderboardFilter();
+            } else {
+                showErrorToast(extractErrorMessage(data, 'Failed to load the candidate leaderboard.'));
             }
         } catch (err) {
             console.error("Error fetching leaderboard:", err);
+            showErrorToast('Could not load the candidate leaderboard: server unreachable.');
         }
     }
 
@@ -1087,12 +1170,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ status: newStatus })
             });
 
+            const data = await res.json().catch(() => ({}));
+
             if (!res.ok) {
-                alert("Unable to shortlist candidate. Please try again.");
+                showErrorToast(extractErrorMessage(data, 'Unable to update shortlist status.'));
                 return;
             }
 
-            const data = await res.json();
             if (data.success) {
                 const targetCand = allLoadedCandidates.find(c => c.candidate_id === candidateId);
                 if (targetCand) {
@@ -1105,11 +1189,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 applyLeaderboardFilter();
             } else {
-                alert("Unable to shortlist candidate. Please try again.");
+                showErrorToast('Unable to update shortlist status. Please try again.');
             }
         } catch (err) {
             console.error("Shortlist error:", err);
-            alert("Unable to shortlist candidate. Please try again.");
+            showErrorToast('Unable to update shortlist status: server unreachable.');
         }
     };
 
@@ -1149,7 +1233,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await authFetch(`${API_BASE}/hr/jobs/${activeJobId}/candidates/${candidateId}`);
             const data = await res.json();
-            if (!res.ok) return;
+            if (!res.ok) {
+                showErrorToast(extractErrorMessage(data, 'Could not load candidate details.'));
+                return;
+            }
 
             const profile = data.profile || {};
             const scoreBreakdown = data.score_breakdown || {};
@@ -1211,6 +1298,7 @@ document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
         } catch (err) {
             console.error("Error fetching candidate details:", err);
+            showErrorToast('Could not load candidate details: server unreachable.');
         }
     };
 
@@ -1274,10 +1362,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 modalTitle.textContent = `Resume Preview — ${data.filename}`;
                 modalText.textContent = data.resume_text || "No text available for this file.";
             } else {
-                modalText.textContent = "Could not load resume document.";
+                const msg = extractErrorMessage(data, 'Could not load resume document.');
+                modalText.textContent = msg;
+                showErrorToast(msg);
             }
         } catch (err) {
+            console.error("Resume preview error:", err);
             modalText.textContent = "Failed to retrieve resume preview.";
+            showErrorToast('Failed to retrieve resume preview: server unreachable.');
         }
     };
 
@@ -1384,34 +1476,57 @@ document.addEventListener('DOMContentLoaded', () => {
         lucide.createIcons();
     }
 
+    // Formats a breakdown score for display. Uses `!= null` (not `||`) because a
+    // genuine 0% score is falsy and must NOT be displayed as "100%" — and a score
+    // the backend excluded entirely (null, because the JD didn't specify that
+    // requirement) must show as "N/A", not as a fabricated number either way.
+    function formatBreakdownScore(value) {
+        return (value === null || value === undefined) ? 'N/A' : `${value}%`;
+    }
+
     function renderSkillsBreakdownChart(score, sb) {
         const container = document.getElementById('cd-breakdown-charts');
+        const tiles = [
+            { label: 'Required Skills (35%)', value: sb.required_skills_score, color: 'var(--accent-teal)' },
+            { label: 'Experience (20%)', value: sb.experience_score, color: 'var(--accent)' },
+            { label: 'Semantic JD Relevance (15%)', value: sb.semantic_relevance_score, color: '#38bdf8' },
+            { label: 'Project Relevance (10%)', value: sb.project_score, color: '#a855f7' },
+            { label: 'Preferred Skills (10%)', value: sb.preferred_skills_score, color: '#facc15' },
+            { label: 'Education (5%)', value: sb.education_score, color: '#fb923c' },
+            { label: 'Domain Fit (5%)', value: sb.domain_score, color: '#4ade80' },
+        ];
+
+        const tilesHtml = tiles.map(t => `
+            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <span style="font-size: 0.8rem; color: var(--text-secondary);">${t.label}:</span>
+                <strong style="float: right; color: ${t.color};">${formatBreakdownScore(t.value)}</strong>
+            </div>
+        `).join('');
+
+        const semanticSkills = [
+            ...(sb.semantically_matched_required_skills || []),
+            ...(sb.semantically_matched_preferred_skills || [])
+        ];
+        const semanticNote = semanticSkills.length > 0
+            ? `<p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 10px;">
+                 <i data-lucide="sparkles" style="width:12px;height:12px;vertical-align:-2px;"></i>
+                 Matched via semantic similarity (not an exact keyword match): ${semanticSkills.join(', ')}
+               </p>`
+            : '';
+
         container.innerHTML = `
-            <div style="display: flex; gap: 20px; margin-bottom: 24px;">
+            <div style="display: flex; gap: 20px; margin-bottom: 12px;">
                 <div style="background: rgba(0, 242, 254, 0.05); border: 1px solid rgba(0, 242, 254, 0.2); padding: 20px; border-radius: 12px; text-align: center; min-width: 140px;">
                     <div style="font-size: 2.2rem; font-weight: 700; color: var(--accent);">${score}%</div>
                     <div style="font-size: 0.8rem; color: var(--text-secondary);">Overall Score</div>
                 </div>
                 <div style="flex: 1; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-                    <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
-                        <span style="font-size: 0.8rem; color: var(--text-secondary);">Required Skills (40%):</span>
-                        <strong style="float: right; color: var(--accent-teal);">${sb.required_skills_score || 100}%</strong>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
-                        <span style="font-size: 0.8rem; color: var(--text-secondary);">Experience Score (25%):</span>
-                        <strong style="float: right; color: var(--accent);">${sb.experience_score || 100}%</strong>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
-                        <span style="font-size: 0.8rem; color: var(--text-secondary);">Project Relevance (15%):</span>
-                        <strong style="float: right; color: #a855f7;">${sb.project_score || 100}%</strong>
-                    </div>
-                    <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
-                        <span style="font-size: 0.8rem; color: var(--text-secondary);">Preferred Skills (10%):</span>
-                        <strong style="float: right; color: #facc15;">${sb.preferred_skills_score || 100}%</strong>
-                    </div>
+                    ${tilesHtml}
                 </div>
             </div>
+            ${semanticNote}
         `;
+        lucide.createIcons();
     }
 
     function renderProjectsPane(profile) {
@@ -1524,13 +1639,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (chipsBox) chipsBox.innerHTML = '';
 
                 renderLeaderboard([]);
-                alert("HR screening session and candidate data cleared successfully.");
+                showSuccessToast("HR screening session and candidate data cleared successfully.");
             } else {
-                alert(`Clear failed: ${data.detail || 'Error'}`);
+                showErrorToast(extractErrorMessage(data, 'Failed to clear the HR session.'));
             }
         } catch (err) {
             console.error("Error clearing HR session:", err);
-            alert("Failed to clear session.");
+            showErrorToast('Failed to clear session: server unreachable.');
         }
     };
 

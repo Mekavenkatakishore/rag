@@ -106,6 +106,9 @@ async def analyze_job_candidates(job_id: str, current_user: dict = Depends(get_c
             "total_candidates": len(leaderboard),
             "leaderboard": leaderboard
         }
+    except ValueError as e:
+        logger.warning(f"Analysis refused for job '{job_id}': {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error analyzing candidates for job '{job_id}': {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -225,15 +228,23 @@ async def clear_job_screening_session(job_id: str, current_user: dict = Depends(
 @router.post("/upload-jd")
 async def legacy_upload_jd(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     """Legacy route: uploads JD to default job container."""
-    hr_db.create_job(DEFAULT_JOB_ID, current_user.get("id"), "Default HR Role")
+    hr_db.ensure_job_exists(DEFAULT_JOB_ID, current_user.get("id"), "Default HR Role")
     return await upload_job_description(DEFAULT_JOB_ID, file, current_user)
 
 @router.post("/upload-resumes")
 async def legacy_upload_resumes(files: list[UploadFile] = File(...), current_user: dict = Depends(get_current_user)):
     """Legacy route: uploads batch resumes to default job container."""
-    hr_db.create_job(DEFAULT_JOB_ID, current_user.get("id"), "Default HR Role")
+    hr_db.ensure_job_exists(DEFAULT_JOB_ID, current_user.get("id"), "Default HR Role")
     up_res = await upload_batch_resumes(DEFAULT_JOB_ID, files, current_user)
-    await analyze_job_candidates(DEFAULT_JOB_ID, current_user)
+    try:
+        await analyze_job_candidates(DEFAULT_JOB_ID, current_user)
+    except HTTPException as e:
+        if e.status_code == 400:
+            # No JD has been uploaded/parsed for the default job yet — skip auto-analysis
+            # instead of scoring candidates against an empty JD.
+            logger.warning(f"Skipping auto-analysis for '{DEFAULT_JOB_ID}': {e.detail}")
+        else:
+            raise
     return up_res
 
 @router.get("/leaderboard")
