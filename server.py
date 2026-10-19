@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, FileResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Project Imports
@@ -11,6 +11,7 @@ from app.api.endpoints import router as api_router
 from app.api.auth import auth_router
 from app.api.hr_endpoints import router as hr_router
 from app.api.agent_endpoints import router as agent_router
+from app.api.approval_endpoints import router as approval_router
 from app.services.rag_service import rebuild_retrievers
 from app.db.user_db import initialize_db
 from app.db.hr_db import initialize_hr_db
@@ -93,6 +94,9 @@ app.include_router(hr_router, prefix="/hr", tags=["hr"])
 # Include Agentic AI endpoints (prefixed with /agent)
 app.include_router(agent_router, prefix="/agent", tags=["agent"])
 
+# Include Human Approval Workflow endpoints
+app.include_router(approval_router, tags=["approval"])
+
 # Serve Static Files
 STATIC_DIR = "./static"
 os.makedirs(STATIC_DIR, exist_ok=True)
@@ -101,6 +105,17 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/")
 def read_root():
     """Redirect root URL directly to the web UI."""
+    return RedirectResponse(url="/static/index.html")
+
+@app.get("/home")
+@app.get("/chat")
+@app.get("/matcher")
+@app.get("/approval")
+def spa_routes():
+    """Serve web UI directly for SPA paths so refresh or direct access works."""
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
     return RedirectResponse(url="/static/index.html")
 
 # Build initial index and initialize DB on startup

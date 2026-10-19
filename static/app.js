@@ -108,10 +108,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Check if user is logged in on page load.
-     * If token exists in localStorage → hide modal, show app.
-     * If no token → show auth modal.
+     * SPA Router & View Manager
+     * Routes:
+     *   /home      workspace chooser
+     *   /chat      General RAG chatbot (Knowledge Assistant)
+     *   /matcher   HR Candidate Matcher
+     *   /approval  Approval Review
      */
+    function getCurrentRoute() {
+        const hash = (window.location.hash || '').replace(/^#\/?/, '').trim().toLowerCase();
+        if (['home', 'chat', 'matcher', 'approval'].includes(hash)) {
+            return hash;
+        }
+        const path = (window.location.pathname || '').replace(/^\//, '').split('/')[0].trim().toLowerCase();
+        if (['home', 'chat', 'matcher', 'approval'].includes(path)) {
+            return path;
+        }
+        return 'home';
+    }
+
     function checkAuthState() {
         if (accessToken && currentUsername) {
             showApp();
@@ -122,13 +137,138 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showAuthModal() {
         authOverlay.classList.remove('hidden');
+        const viewHome = document.getElementById('view-home');
+        const appContainer = document.getElementById('app-container');
+        if (viewHome) viewHome.classList.add('hidden');
+        if (appContainer) appContainer.classList.add('hidden');
     }
+
+    window.handleLogout = function() {
+        accessToken = null;
+        currentUsername = null;
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('username');
+        chatHistory = [];
+        showAuthModal();
+    };
+
+    window.navigateTo = function(route, updateUrl = true) {
+        const validRoutes = ['home', 'chat', 'matcher', 'approval'];
+        if (!validRoutes.includes(route)) {
+            route = 'home';
+        }
+
+        // Auth guard: if not authenticated, redirect to login modal
+        if (!accessToken || !currentUsername) {
+            showAuthModal();
+            return;
+        }
+
+        if (updateUrl) {
+            window.location.hash = '#/' + route;
+            if (window.history && window.history.pushState) {
+                try {
+                    window.history.pushState(null, '', '/' + route);
+                } catch (e) {
+                    // Fallback to hash only if pushState restricted
+                }
+            }
+        }
+
+        const viewHome = document.getElementById('view-home');
+        const appContainer = document.getElementById('app-container');
+        const clearChatBtn = document.getElementById('clear-chat');
+
+        // Views
+        const viewRag = document.getElementById('view-rag-chat');
+        const viewHr = document.getElementById('view-hr-matcher');
+        const viewCandidateDetail = document.getElementById('view-candidate-detail');
+        const viewApproval = document.getElementById('view-approval-review');
+        const viewApprovalReview = document.getElementById('view-approval-candidate-review');
+
+        // Title and Subtitle
+        const title = document.getElementById('view-title');
+        const subtitle = document.getElementById('view-subtitle');
+
+        // Workspace Tabs
+        const tabChat = document.getElementById('ws-tab-chat');
+        const tabMatcher = document.getElementById('ws-tab-matcher');
+        const tabApproval = document.getElementById('ws-tab-approval');
+
+        [tabChat, tabMatcher, tabApproval].forEach(tab => {
+            if (tab) tab.classList.remove('active');
+        });
+
+        if (route === 'home') {
+            if (viewHome) viewHome.classList.remove('hidden');
+            if (appContainer) appContainer.classList.add('hidden');
+            fetchApprovalCandidates();
+        } else {
+            if (viewHome) viewHome.classList.add('hidden');
+            if (appContainer) {
+                appContainer.classList.remove('hidden');
+                appContainer.classList.remove('workspace-chat', 'workspace-matcher', 'workspace-approval');
+                appContainer.classList.add('workspace-' + route);
+            }
+
+            // Reset child views
+            [viewRag, viewHr, viewCandidateDetail, viewApproval, viewApprovalReview].forEach(v => {
+                if (v) v.classList.add('hidden');
+            });
+
+            if (route === 'chat') {
+                if (tabChat) tabChat.classList.add('active');
+                if (viewRag) viewRag.classList.remove('hidden');
+                if (title) title.textContent = "Knowledge Assistant";
+                if (subtitle) subtitle.textContent = "Grounded in your uploaded playbooks and documentation";
+                if (clearChatBtn) clearChatBtn.style.display = 'flex';
+                updateServerStatus();
+            } else if (route === 'matcher') {
+                if (tabMatcher) tabMatcher.classList.add('active');
+                if (viewHr) viewHr.classList.remove('hidden');
+                if (title) title.textContent = "AI HR Candidate Matcher";
+                if (subtitle) subtitle.textContent = "Upload Job Description & candidate resumes for AI match ranking";
+                if (clearChatBtn) clearChatBtn.style.display = 'none';
+                fetchHRLeaderboard();
+            } else if (route === 'approval') {
+                if (tabApproval) tabApproval.classList.add('active');
+                if (viewApproval) viewApproval.classList.remove('hidden');
+                if (title) title.textContent = "Candidate Approval Review";
+                if (subtitle) subtitle.textContent = "Review screened candidates against JD requirements and authorize shortlist email dispatch";
+                if (clearChatBtn) clearChatBtn.style.display = 'none';
+                fetchApprovalCandidates();
+            }
+        }
+
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    };
+
+    window.addEventListener('popstate', () => {
+        if (accessToken && currentUsername) {
+            navigateTo(getCurrentRoute(), false);
+        }
+    });
+
+    window.addEventListener('hashchange', () => {
+        if (accessToken && currentUsername) {
+            navigateTo(getCurrentRoute(), false);
+        }
+    });
 
     function showApp() {
         authOverlay.classList.add('hidden');
-        userNameDisplay.textContent = currentUsername;
+        ['user-name-display', 'home-user-name', 'top-user-name'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = currentUsername;
+        });
         lucide.createIcons();
+        fetchApprovalCandidates();
         updateServerStatus();
+
+        const initialRoute = getCurrentRoute();
+        navigateTo(initialRoute, false);
     }
 
     /** Switch between Login and Sign Up tabs */
@@ -183,6 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('username', currentUsername);
 
             showApp();
+            navigateTo('home');
 
         } catch (err) {
             loginError.textContent = 'Could not connect to the server.';
@@ -240,14 +381,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     /** Logout: Clear localStorage and show auth modal */
-    logoutBtn.addEventListener('click', () => {
-        accessToken = null;
-        currentUsername = null;
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('username');
-        chatHistory = [];
-        showAuthModal();
-    });
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            window.handleLogout();
+        });
+    }
 
     // ═══════════════════════════════════════════════════════════════════════
     //  RAG APP LOGIC
@@ -276,15 +414,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /** Handle 401 Unauthorized globally — log the user out and show modal */
     function handleUnauthorized() {
-        accessToken = null;
-        currentUsername = null;
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('username');
         if (typeof addMessage === 'function') {
             addMessage('bot', '⚠️ Your session has expired. Please log in again.');
         }
         showToast('Your session has expired. Please log in again.', 'warning');
-        showAuthModal();
+        window.handleLogout();
     }
 
     // 1. Fetch Initial Server Status
@@ -824,30 +958,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeJDInfo = null;
 
     window.switchAppMode = function(mode) {
-        const btnRag = document.getElementById('mode-rag');
-        const btnHr = document.getElementById('mode-hr');
-        const viewRag = document.getElementById('view-rag-chat');
-        const viewHr = document.getElementById('view-hr-matcher');
-        const title = document.getElementById('view-title');
-        const subtitle = document.getElementById('view-subtitle');
-
-        if (mode === 'hr') {
-            btnRag.classList.remove('active');
-            btnHr.classList.add('active');
-            viewRag.classList.add('hidden');
-            viewHr.classList.remove('hidden');
-            title.textContent = "AI HR Candidate Matcher";
-            subtitle.textContent = "Upload Job Description & candidate resumes for AI match ranking";
-            fetchHRLeaderboard();
+        if (mode === 'rag') {
+            window.navigateTo('chat');
+        } else if (mode === 'hr') {
+            window.navigateTo('matcher');
+        } else if (mode === 'approval') {
+            window.navigateTo('approval');
         } else {
-            btnHr.classList.remove('active');
-            btnRag.classList.add('active');
-            viewHr.classList.add('hidden');
-            viewRag.classList.remove('hidden');
-            title.textContent = "Knowledge Assistant";
-            subtitle.textContent = "Grounded in your uploaded playbooks and documentation";
+            window.navigateTo(mode);
         }
-        lucide.createIcons();
     };
 
     // Helper to upload batch resumes
@@ -1648,6 +1767,720 @@ document.addEventListener('DOMContentLoaded', () => {
             showErrorToast('Failed to clear session: server unreachable.');
         }
     };
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  HUMAN APPROVAL WORKFLOW FRONTEND CONTROLLER (PHASE 1)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    let approvalCandidatesList = [];
+    let activeApprovalStatusFilter = "Pending Approval";
+    let activeApprovalSort = "score_desc";
+    let activeApprovalMinScore = 0;
+    let activeApprovalSearch = "";
+    let currentReviewCandidateId = null;
+    let currentReviewCandidateData = null;
+
+    async function fetchApprovalCandidates() {
+        try {
+            const tbody = document.getElementById('approval-table-body');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="8" class="empty-table-msg">Loading candidates for review...</td></tr>`;
+            }
+
+            const res = await authFetch(`${API_BASE}/shortlisted?status=all`);
+            const data = await res.json();
+            if (!res.ok) {
+                showErrorToast(extractErrorMessage(data, 'Failed to fetch candidate approval list.'));
+                return;
+            }
+
+            approvalCandidatesList = data.candidates || [];
+            updateApprovalKPIs();
+            renderApprovalTable();
+        } catch (err) {
+            console.error("Error fetching approval candidates:", err);
+            showErrorToast('Failed to load candidate approval list: server unreachable.');
+        }
+    }
+
+    function updateApprovalKPIs() {
+        const pendingCount = approvalCandidatesList.filter(c => 
+            c.status === 'Pending Approval' || c.status === 'Shortlisted (Pending Approval)' || c.status === 'Shortlisted'
+        ).length;
+        const approvedCount = approvalCandidatesList.filter(c => c.status === 'Approved').length;
+        const holdCount = approvalCandidatesList.filter(c => c.status === 'On Hold').length;
+        const rejectedCount = approvalCandidatesList.filter(c => c.status === 'Rejected').length;
+        const allCount = approvalCandidatesList.length;
+
+        // KPI Badges
+        const kpiPend = document.getElementById('kpi-pending-count');
+        const kpiAppr = document.getElementById('kpi-approved-count');
+        const kpiHold = document.getElementById('kpi-hold-count');
+        if (kpiPend) kpiPend.textContent = pendingCount;
+        if (kpiAppr) kpiAppr.textContent = approvedCount;
+        if (kpiHold) kpiHold.textContent = holdCount;
+
+        // Filter tab counts
+        const countPend = document.getElementById('appr-count-pending');
+        const countAppr = document.getElementById('appr-count-approved');
+        const countHold = document.getElementById('appr-count-hold');
+        const countRej = document.getElementById('appr-count-rejected');
+        const countAll = document.getElementById('appr-count-all');
+        if (countPend) countPend.textContent = `(${pendingCount})`;
+        if (countAppr) countAppr.textContent = `(${approvedCount})`;
+        if (countHold) countHold.textContent = `(${holdCount})`;
+        if (countRej) countRej.textContent = `(${rejectedCount})`;
+        if (countAll) countAll.textContent = `(${allCount})`;
+
+        // Home Chooser Card Badge
+        const homeBadge = document.getElementById('home-approval-badge');
+        if (homeBadge) {
+            if (pendingCount > 0) {
+                homeBadge.textContent = pendingCount;
+                homeBadge.style.display = 'inline-flex';
+            } else {
+                homeBadge.style.display = 'none';
+            }
+        }
+
+        // Top Workspace Switcher Badge
+        const wsBadge = document.getElementById('ws-pending-badge');
+        if (wsBadge) {
+            if (pendingCount > 0) {
+                wsBadge.textContent = pendingCount;
+                wsBadge.style.display = 'inline-flex';
+            } else {
+                wsBadge.style.display = 'none';
+            }
+        }
+
+        // Legacy / Fallback Navigation Badge
+        const navBadge = document.getElementById('nav-pending-badge');
+        if (navBadge) {
+            if (pendingCount > 0) {
+                navBadge.textContent = pendingCount;
+                navBadge.style.display = 'inline-block';
+            } else {
+                navBadge.style.display = 'none';
+            }
+        }
+    }
+
+    window.setApprovalStatusFilter = function(status) {
+        activeApprovalStatusFilter = status;
+        document.querySelectorAll('.approval-filter-tabs .appr-tab-btn').forEach(btn => btn.classList.remove('active'));
+        
+        let targetId = 'appr-filter-all';
+        if (status === 'Pending Approval') targetId = 'appr-filter-pending';
+        else if (status === 'Approved') targetId = 'appr-filter-approved';
+        else if (status === 'On Hold') targetId = 'appr-filter-hold';
+        else if (status === 'Rejected') targetId = 'appr-filter-rejected';
+
+        const activeBtn = document.getElementById(targetId);
+        if (activeBtn) activeBtn.classList.add('active');
+
+        renderApprovalTable();
+    };
+
+    window.handleApprovalSortChange = function(val) {
+        activeApprovalSort = val;
+        renderApprovalTable();
+    };
+
+    window.handleApprovalMinScoreChange = function(val) {
+        activeApprovalMinScore = parseFloat(val) || 0;
+        renderApprovalTable();
+    };
+
+    window.handleApprovalSearch = function(val) {
+        activeApprovalSearch = (val || "").toLowerCase().trim();
+        renderApprovalTable();
+    };
+
+    function renderApprovalTable() {
+        const tbody = document.getElementById('approval-table-body');
+        if (!tbody) return;
+
+        let filtered = [...approvalCandidatesList];
+
+        // 1. Status Filter
+        if (activeApprovalStatusFilter !== 'all') {
+            if (activeApprovalStatusFilter === 'Pending Approval') {
+                filtered = filtered.filter(c => 
+                    c.status === 'Pending Approval' || c.status === 'Shortlisted (Pending Approval)' || c.status === 'Shortlisted'
+                );
+            } else {
+                filtered = filtered.filter(c => c.status === activeApprovalStatusFilter);
+            }
+        }
+
+        // 2. Min Score Filter
+        if (activeApprovalMinScore > 0) {
+            filtered = filtered.filter(c => (c.score || 0) >= activeApprovalMinScore);
+        }
+
+        // 3. Search Filter
+        if (activeApprovalSearch) {
+            filtered = filtered.filter(c => 
+                (c.name || "").toLowerCase().includes(activeApprovalSearch) ||
+                (c.role || "").toLowerCase().includes(activeApprovalSearch) ||
+                (c.job_title || "").toLowerCase().includes(activeApprovalSearch)
+            );
+        }
+
+        // 4. Sort
+        if (activeApprovalSort === 'score_desc') {
+            filtered.sort((a, b) => (b.score || 0) - (a.score || 0));
+        } else if (activeApprovalSort === 'score_asc') {
+            filtered.sort((a, b) => (a.score || 0) - (b.score || 0));
+        } else if (activeApprovalSort === 'date_desc') {
+            filtered.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+        } else if (activeApprovalSort === 'name_asc') {
+            filtered.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        }
+
+        tbody.innerHTML = '';
+        if (filtered.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="empty-table-msg">
+                        No candidates found for status filter <strong>${activeApprovalStatusFilter}</strong>.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        filtered.forEach((cand, idx) => {
+            const tr = document.createElement('tr');
+            
+            let statusBadgeClass = 'pending-approval';
+            let statusLabel = cand.status || 'Pending Approval';
+            if (statusLabel === 'Approved') statusBadgeClass = 'approved';
+            else if (statusLabel === 'On Hold') statusBadgeClass = 'on-hold';
+            else if (statusLabel === 'Rejected') statusBadgeClass = 'rejected';
+            else if (statusLabel.includes('Pending') || statusLabel.includes('Shortlisted')) {
+                statusBadgeClass = 'pending-approval';
+                statusLabel = 'Pending Approval';
+            }
+
+            const topSkillsChips = (cand.top_matched_skills || []).map(s => 
+                `<span class="skill-chip matched" style="font-size: 0.72rem; padding: 2px 7px;">${s}</span>`
+            ).join(' ') || '<span style="color:var(--text-secondary); font-size:0.75rem;">None</span>';
+
+            const formattedDate = cand.date ? cand.date.substring(0, 10) : 'Recent';
+
+            tr.innerHTML = `
+                <td><strong>#${idx + 1}</strong></td>
+                <td>
+                    <div style="font-weight: 600; color: #f1f5f9;">${cand.name}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${cand.email || ''}</div>
+                </td>
+                <td>
+                    <div style="font-size: 0.82rem; color: #cbd5e1;">${cand.role || cand.job_title}</div>
+                    <div style="font-size: 0.72rem; color: var(--text-secondary);">${cand.job_title}</div>
+                </td>
+                <td>
+                    <div style="font-size: 0.95rem; font-weight: 700; color: #00f2fe;">${cand.score}%</div>
+                    <span class="fit-badge ${cand.fit_category === 'Strong Fit' ? 'strong-fit' : (cand.fit_category === 'Moderate Fit' ? 'moderate-fit' : 'weak-fit')}" style="font-size:0.7rem; padding: 1px 6px;">
+                        ${cand.fit_category || 'Fit'}
+                    </span>
+                </td>
+                <td>
+                    <span class="hr-status-badge ${statusBadgeClass}">
+                        ${statusLabel}
+                    </span>
+                </td>
+                <td>
+                    <div style="display:flex; flex-wrap:wrap; gap:4px; max-width: 240px;">
+                        ${topSkillsChips}
+                    </div>
+                </td>
+                <td style="font-size: 0.78rem; color: var(--text-secondary);">${formattedDate}</td>
+                <td>
+                    <button class="action-btn-primary" style="padding: 5px 12px; font-size: 0.78rem; display: flex; align-items: center; gap: 4px;" onclick="openApprovalCandidateReview('${cand.candidate_id}')">
+                        <i data-lucide="file-search" style="width:14px; height:14px;"></i>
+                        <span>Review Candidate</span>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        lucide.createIcons();
+    }
+
+    // ─── Candidate Review Deep Dive Screen ──────────────────────────────────
+
+    window.openApprovalCandidateReview = async function(candidateId) {
+        currentReviewCandidateId = candidateId;
+        const viewList = document.getElementById('view-approval-review');
+        const viewReview = document.getElementById('view-approval-candidate-review');
+
+        if (viewList) viewList.classList.add('hidden');
+        if (viewReview) viewReview.classList.remove('hidden');
+
+        try {
+            const res = await authFetch(`${API_BASE}/candidates/${candidateId}/match-details`);
+            const data = await res.json();
+            if (!res.ok) {
+                showErrorToast(extractErrorMessage(data, 'Could not load match details.'));
+                return;
+            }
+
+            currentReviewCandidateData = data;
+            renderCandidateReviewScreen(data);
+        } catch (err) {
+            console.error("Error loading candidate review screen:", err);
+            showErrorToast('Failed to load candidate review data: server unreachable.');
+        }
+    };
+
+    window.hideApprovalCandidateReview = function() {
+        const viewList = document.getElementById('view-approval-review');
+        const viewReview = document.getElementById('view-approval-candidate-review');
+
+        if (viewReview) viewReview.classList.add('hidden');
+        if (viewList) viewList.classList.remove('hidden');
+
+        fetchApprovalCandidates();
+    };
+
+    function renderCandidateReviewScreen(d) {
+        // 1. Header & Status
+        const nameEl = document.getElementById('ar-cand-header-name');
+        const roleEl = document.getElementById('ar-cand-header-role');
+        const scoreValEl = document.querySelector('#ar-cand-header-score .score-val');
+        const statusBadge = document.getElementById('ar-current-status-badge');
+        const notesInput = document.getElementById('ar-hr-notes-input');
+
+        if (nameEl) nameEl.textContent = d.name || "Candidate";
+        if (roleEl) roleEl.textContent = `${d.role || 'Software Engineer'} • Target JD: ${d.jd_requirements?.title || d.job_id}`;
+        if (scoreValEl) scoreValEl.textContent = `${d.overall_score}%`;
+        
+        if (statusBadge) {
+            let statusLabel = d.candidate_status || 'Pending Approval';
+            let badgeClass = 'pending-approval';
+            if (statusLabel === 'Approved') badgeClass = 'approved';
+            else if (statusLabel === 'On Hold') badgeClass = 'on-hold';
+            else if (statusLabel === 'Rejected') badgeClass = 'rejected';
+            else badgeClass = 'pending-approval';
+
+            statusBadge.className = `hr-status-badge ${badgeClass}`;
+            statusBadge.textContent = statusLabel;
+        }
+
+        if (notesInput) {
+            notesInput.value = d.hr_notes || "";
+        }
+
+        // 2. Summary & Red Flags
+        const summaryText = document.getElementById('ar-summary-text');
+        if (summaryText) summaryText.textContent = d.summary || "Candidate evaluated deterministically against job description.";
+
+        const flagsList = document.getElementById('ar-red-flags-list');
+        if (flagsList) {
+            flagsList.innerHTML = '';
+            const redFlags = d.red_flags || [];
+            if (redFlags.length === 0) {
+                flagsList.innerHTML = `<li style="color:#34d399;">No red flags detected. Candidate cleanly meets mandatory criteria.</li>`;
+            } else {
+                redFlags.forEach(rf => {
+                    const li = document.createElement('li');
+                    li.textContent = rf;
+                    flagsList.appendChild(li);
+                });
+            }
+        }
+
+        // 3. Criteria Pass/Fail Matrix
+        const criteriaTbody = document.getElementById('ar-criteria-table-body');
+        if (criteriaTbody) {
+            criteriaTbody.innerHTML = '';
+            (d.criteria_results || []).forEach(cr => {
+                const tr = document.createElement('tr');
+                const pillHtml = cr.passed 
+                    ? `<span class="criteria-pass-pill">✓ PASS</span>`
+                    : `<span class="criteria-fail-pill">✗ FAIL</span>`;
+
+                tr.innerHTML = `
+                    <td><strong>${cr.rule}</strong></td>
+                    <td style="color:var(--text-secondary);">${cr.requirement}</td>
+                    <td>${cr.actual}</td>
+                    <td>${pillHtml}</td>
+                `;
+                criteriaTbody.appendChild(tr);
+            });
+        }
+
+        // 4. Side-by-Side: JD vs Candidate Evidence
+        const jdCol = document.getElementById('ar-sbs-jd-content');
+        const resumeCol = document.getElementById('ar-sbs-resume-content');
+        const jdReq = d.jd_requirements || {};
+
+        if (jdCol) {
+            jdCol.innerHTML = `
+                <div class="sbs-item">
+                    <span class="sbs-label">Role Title</span>
+                    <div>${jdReq.title || 'Role'}</div>
+                </div>
+                <div class="sbs-item">
+                    <span class="sbs-label">Required Skills (${(jdReq.required_skills || []).length})</span>
+                    <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
+                        ${(jdReq.required_skills || []).map(s => `<span class="skill-chip" style="font-size:0.75rem;">${s}</span>`).join(' ') || 'None specified'}
+                    </div>
+                </div>
+                <div class="sbs-item">
+                    <span class="sbs-label">Preferred Skills (${(jdReq.preferred_skills || []).length})</span>
+                    <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
+                        ${(jdReq.preferred_skills || []).map(s => `<span class="skill-chip" style="font-size:0.75rem; border-color:rgba(255,255,255,0.1);">${s}</span>`).join(' ') || 'None specified'}
+                    </div>
+                </div>
+                <div class="sbs-item">
+                    <span class="sbs-label">Minimum Experience</span>
+                    <div>${jdReq.min_experience_years || 0} Years</div>
+                </div>
+                <div class="sbs-item">
+                    <span class="sbs-label">Education</span>
+                    <div>${jdReq.education || 'Bachelor\'s degree in related technical field'}</div>
+                </div>
+            `;
+        }
+
+        if (resumeCol) {
+            resumeCol.innerHTML = '';
+            const matchedSkills = d.matched_skills || [];
+            if (matchedSkills.length === 0) {
+                resumeCol.innerHTML = `<div style="color:var(--text-secondary); font-size:0.8rem;">No explicit evidence snippets extracted.</div>`;
+            } else {
+                matchedSkills.forEach(ms => {
+                    const block = document.createElement('div');
+                    block.className = 'sbs-item';
+                    block.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span class="skill-chip matched" style="font-size:0.75rem;">✓ ${ms.skill}</span>
+                            <span style="font-size:0.7rem; color:var(--text-secondary);"><i data-lucide="file-text" style="width:11px; height:11px; display:inline;"></i> Page ${ms.page || 1}</span>
+                        </div>
+                        <div class="sbs-citation-quote">"${ms.evidence}"</div>
+                    `;
+                    resumeCol.appendChild(block);
+                });
+            }
+        }
+
+        // 5. Score Breakdown Bars
+        const gaugeEl = document.getElementById('ar-big-score-gauge');
+        const fitLabel = document.getElementById('ar-fit-category-label');
+        if (gaugeEl) gaugeEl.textContent = `${d.overall_score}%`;
+        if (fitLabel) {
+            fitLabel.textContent = d.fit_category || "Fit";
+            fitLabel.className = `fit-label ${d.fit_category === 'Strong Fit' ? 'strong-fit' : (d.fit_category === 'Moderate Fit' ? 'moderate-fit' : 'weak-fit')}`;
+        }
+
+        const barsList = document.getElementById('ar-component-bars');
+        if (barsList) {
+            barsList.innerHTML = '';
+            const sb = d.score_breakdown || {};
+            const components = [
+                { name: "Required Skills Fit (35%)", val: sb.required_skills_score ?? 0 },
+                { name: "Relevant Experience (20%)", val: sb.experience_score ?? 0 },
+                { name: "Semantic JD Relevance (15%)", val: sb.semantic_relevance_score ?? 0 },
+                { name: "Project Relevance (10%)", val: sb.project_score ?? 0 },
+                { name: "Preferred Skills (10%)", val: sb.preferred_skills_score ?? 0 },
+                { name: "Education Fit (5%)", val: sb.education_score ?? 0 },
+                { name: "Domain Fit (5%)", val: sb.domain_score ?? 0 }
+            ];
+
+            components.forEach(c => {
+                const item = document.createElement('div');
+                item.className = 'comp-bar-item';
+                item.innerHTML = `
+                    <div class="comp-bar-header">
+                        <span>${c.name}</span>
+                        <strong>${c.val}%</strong>
+                    </div>
+                    <div class="comp-bar-track">
+                        <div class="comp-bar-fill" style="width: ${Math.min(100, Math.max(0, c.val))}%;"></div>
+                    </div>
+                `;
+                barsList.appendChild(item);
+            });
+        }
+
+        // 6. Skills Classification (Matched, Missing, Bonus)
+        const matchedBox = document.getElementById('ar-chips-matched');
+        const missingBox = document.getElementById('ar-chips-missing');
+        const bonusBox = document.getElementById('ar-chips-bonus');
+
+        if (matchedBox) {
+            matchedBox.innerHTML = (d.matched_skills || []).map(s => 
+                `<span class="skill-chip matched" title="Verified in candidate resume">✓ ${s.skill}</span>`
+            ).join(' ') || '<span style="color:var(--text-secondary); font-size:0.75rem;">None</span>';
+        }
+
+        if (missingBox) {
+            missingBox.innerHTML = (d.missing_skills || []).map(s => 
+                `<span class="skill-chip" style="border-color: rgba(239,68,68,0.4); color:#f87171; background: rgba(239,68,68,0.08);">✗ ${s}</span>`
+            ).join(' ') || '<span style="color:#34d399; font-size:0.75rem;">None missing!</span>';
+        }
+
+        if (bonusBox) {
+            bonusBox.innerHTML = (d.bonus_skills || []).map(s => 
+                `<span class="skill-chip bonus">+ ${s}</span>`
+            ).join(' ') || '<span style="color:var(--text-secondary); font-size:0.75rem;">No additional bonus skills</span>';
+        }
+
+        // 7. Experience Match
+        const expBox = document.getElementById('ar-exp-match-content');
+        if (expBox) {
+            const exp = d.experience_match || {};
+            expBox.innerHTML = `
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <div><strong>Required:</strong> ${exp.required_years || 0} Years</div>
+                    <div><strong>Demonstrated:</strong> ${exp.actual_years || 0} Years</div>
+                </div>
+                <div style="font-size:0.8rem; color:${exp.meets ? '#34d399' : '#f87171'};">
+                    ${exp.meets ? '✓ Meets minimum experience threshold' : `⚠ Below requirement by ${Math.abs(exp.difference_years || 0)} years`}
+                </div>
+            `;
+        }
+
+        // 8. Resume Document Preview Text
+        const previewBox = document.getElementById('ar-resume-preview-text');
+        const filenameTag = document.getElementById('ar-resume-preview-filename');
+        if (filenameTag) filenameTag.textContent = d.filename || "resume.pdf";
+        if (previewBox) previewBox.textContent = d.resume_preview_text || "Resume text verified.";
+
+        // 9. Audit Trail
+        fetchCandidateAuditLogs(d.candidate_id);
+
+        lucide.createIcons();
+    }
+
+    async function fetchCandidateAuditLogs(candidateId) {
+        const auditBox = document.getElementById('ar-audit-trail-list');
+        if (!auditBox) return;
+
+        try {
+            const res = await authFetch(`${API_BASE}/candidates/${candidateId}/audit-logs`);
+            const data = await res.json();
+            if (res.ok && data.logs && data.logs.length > 0) {
+                auditBox.innerHTML = '';
+                data.logs.forEach(log => {
+                    const item = document.createElement('div');
+                    item.className = 'audit-item';
+                    item.innerHTML = `
+                        <div style="display:flex; justify-content:space-between;">
+                            <strong>${log.action}</strong>
+                            <span class="audit-meta">${(log.created_at || '').substring(0, 19).replace('T', ' ')}</span>
+                        </div>
+                        <div style="font-size:0.75rem; color:#cbd5e1; margin-top:2px;">
+                            By: <strong>${log.performed_by}</strong> ${log.hr_notes ? `— "${log.hr_notes}"` : ''}
+                        </div>
+                    `;
+                    auditBox.appendChild(item);
+                });
+            } else {
+                auditBox.innerHTML = `<div class="audit-empty" style="color:var(--text-secondary); font-size:0.75rem;">No previous approval actions recorded.</div>`;
+            }
+        } catch (e) {
+            console.error("Error fetching audit logs:", e);
+        }
+    }
+
+    // ─── Approval / Rejection / Hold Handlers & Modals ─────────────────────
+
+    window.openApproveConfirmationModal = function() {
+        if (!currentReviewCandidateData) return;
+        const modalName = document.getElementById('modal-approve-cand-name');
+        if (modalName) modalName.textContent = currentReviewCandidateData.name || "Candidate";
+
+        const modal = document.getElementById('approve-confirm-modal');
+        if (modal) modal.classList.remove('hidden');
+        lucide.createIcons();
+    };
+
+    window.closeApproveConfirmationModal = function() {
+        const modal = document.getElementById('approve-confirm-modal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.confirmApproveCandidate = async function() {
+        if (!currentReviewCandidateId) return;
+        const btn = document.getElementById('btn-modal-confirm-approve');
+        if (btn) btn.disabled = true;
+
+        const hrNotes = document.getElementById('ar-hr-notes-input')?.value || "";
+
+        try {
+            const res = await authFetch(`${API_BASE}/candidates/${currentReviewCandidateId}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hr_notes: hrNotes })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                closeApproveConfirmationModal();
+                showSuccessToast(`Shortlist Approved! Status marked as Approved. (Shortlist email queued / Phase 1 stubbed).`);
+
+                // Update UI status badge
+                const statusBadge = document.getElementById('ar-current-status-badge');
+                if (statusBadge) {
+                    statusBadge.className = "hr-status-badge approved";
+                    statusBadge.textContent = "Approved";
+                }
+                fetchCandidateAuditLogs(currentReviewCandidateId);
+                updateApprovalKPIs();
+            } else {
+                showErrorToast(extractErrorMessage(data, 'Shortlist approval failed.'));
+            }
+        } catch (err) {
+            console.error("Error approving candidate:", err);
+            showErrorToast('Approval action failed: server unreachable.');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    };
+
+    window.openRejectConfirmationModal = function() {
+        if (!currentReviewCandidateData) return;
+        const modalName = document.getElementById('modal-reject-cand-name');
+        if (modalName) modalName.textContent = currentReviewCandidateData.name || "Candidate";
+
+        const modal = document.getElementById('reject-confirm-modal');
+        if (modal) modal.classList.remove('hidden');
+        lucide.createIcons();
+    };
+
+    window.closeRejectConfirmationModal = function() {
+        const modal = document.getElementById('reject-confirm-modal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.confirmRejectCandidate = async function() {
+        if (!currentReviewCandidateId) return;
+        const btn = document.getElementById('btn-modal-confirm-reject');
+        if (btn) btn.disabled = true;
+
+        const reasonSelect = document.getElementById('modal-reject-reason-select');
+        const reason = reasonSelect?.value || "Qualifications do not match role requirements";
+        const hrNotes = document.getElementById('ar-hr-notes-input')?.value || "";
+
+        try {
+            const res = await authFetch(`${API_BASE}/candidates/${currentReviewCandidateId}/reject`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hr_notes: hrNotes, rejection_reason: reason })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                closeRejectConfirmationModal();
+                showSuccessToast(`Candidate marked as Rejected.`);
+
+                const statusBadge = document.getElementById('ar-current-status-badge');
+                if (statusBadge) {
+                    statusBadge.className = "hr-status-badge rejected";
+                    statusBadge.textContent = "Rejected";
+                }
+                fetchCandidateAuditLogs(currentReviewCandidateId);
+                updateApprovalKPIs();
+            } else {
+                showErrorToast(extractErrorMessage(data, 'Rejection action failed.'));
+            }
+        } catch (err) {
+            console.error("Error rejecting candidate:", err);
+            showErrorToast('Rejection action failed: server unreachable.');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    };
+
+    window.handleCandidateHold = async function() {
+        if (!currentReviewCandidateId) return;
+        const hrNotes = document.getElementById('ar-hr-notes-input')?.value || "";
+
+        try {
+            const res = await authFetch(`${API_BASE}/candidates/${currentReviewCandidateId}/hold`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hr_notes: hrNotes })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                showSuccessToast(`Candidate placed On Hold.`);
+                const statusBadge = document.getElementById('ar-current-status-badge');
+                if (statusBadge) {
+                    statusBadge.className = "hr-status-badge on-hold";
+                    statusBadge.textContent = "On Hold";
+                }
+                fetchCandidateAuditLogs(currentReviewCandidateId);
+                updateApprovalKPIs();
+            } else {
+                showErrorToast(extractErrorMessage(data, 'Hold action failed.'));
+            }
+        } catch (err) {
+            console.error("Error putting candidate on hold:", err);
+            showErrorToast('Hold action failed: server unreachable.');
+        }
+    };
+
+    // ─── Email Preview Modal Handlers ─────────────────────────────────────
+
+    window.openEmailPreviewModal = async function() {
+        if (!currentReviewCandidateId) return;
+        const modal = document.getElementById('email-preview-modal');
+        if (!modal) return;
+
+        try {
+            const res = await authFetch(`${API_BASE}/candidates/${currentReviewCandidateId}/email-preview`);
+            const data = await res.json();
+            if (!res.ok) {
+                showErrorToast(extractErrorMessage(data, 'Could not generate email preview.'));
+                return;
+            }
+
+            document.getElementById('ep-to-email').textContent = data.to_email || "candidate@example.com";
+            document.getElementById('ep-subject').textContent = data.subject || "Shortlist Invitation";
+            document.getElementById('ep-sender').textContent = data.hr_name || "HR Talent Team";
+            document.getElementById('ep-html-view').innerHTML = data.html_body || "<p>Email template preview</p>";
+            document.getElementById('ep-text-view').textContent = data.plain_text_body || "";
+
+            switchEmailTab('html');
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+        } catch (err) {
+            console.error("Error generating email preview:", err);
+            showErrorToast('Could not load email preview: server unreachable.');
+        }
+    };
+
+    window.closeEmailPreviewModal = function() {
+        const modal = document.getElementById('email-preview-modal');
+        if (modal) modal.classList.add('hidden');
+    };
+
+    window.switchEmailTab = function(tab) {
+        const btnHtml = document.getElementById('btn-email-tab-html');
+        const btnText = document.getElementById('btn-email-tab-text');
+        const viewHtml = document.getElementById('ep-html-view');
+        const viewText = document.getElementById('ep-text-view');
+
+        if (tab === 'text') {
+            btnHtml.classList.remove('active');
+            btnText.classList.add('active');
+            viewHtml.classList.add('hidden');
+            viewText.classList.remove('hidden');
+        } else {
+            btnText.classList.remove('active');
+            btnHtml.classList.add('active');
+            viewText.classList.add('hidden');
+            viewHtml.classList.remove('hidden');
+        }
+    };
+
 
     // ─── Boot ─────────────────────────────────────────────────────────────
     checkAuthState();

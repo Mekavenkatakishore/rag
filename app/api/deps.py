@@ -77,3 +77,18 @@ def get_current_user(
 
     # 4. Return the user dict — injected into the route function
     return user
+
+
+def require_hr_or_admin(
+    current_user: dict = Depends(get_current_user)
+) -> dict:
+    """
+    RBAC dependency ensuring only HR, Admin, or Recruiter accounts can perform approval actions.
+    """
+    role = (current_user.get("role") or "hr").lower()
+    if role not in ["hr", "admin", "recruiter"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: HR or Admin credentials required."
+        )
+    return current_user

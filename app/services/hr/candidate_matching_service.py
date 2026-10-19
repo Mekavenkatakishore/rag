@@ -10,6 +10,7 @@ from app.services.hr.jd_parser_service import extract_text_from_file
 from app.services.hr.skill_normalization_service import normalize_skill_list
 from app.services.hr.scoring_service import calculate_candidate_score
 from app.services.hr.evidence_service import retrieve_candidate_evidence
+from app.services.hr.approval_service import generate_and_save_match_details
 from app.utils.logger import logger
 
 RESUME_DIR = os.path.join(settings.UPLOAD_DIR, "resumes")
@@ -174,12 +175,29 @@ Return ONLY a JSON object formatted exactly as:
     hr_db.save_candidate_score(candidate_id, job_id, final_score, fit_category, score_breakdown)
     hr_db.save_evidence_items(candidate_id, job_id, analysis.get("evidence_items", []))
 
+    # Persist structured match details and criteria checklist
+    generate_and_save_match_details(
+        candidate_id=candidate_id,
+        job_id=job_id,
+        analysis=analysis,
+        jd_requirements=jd_req_normalized,
+        score_breakdown=score_breakdown,
+        final_score=final_score,
+        fit_category=fit_category,
+        evidence_text=combined_evidence_text
+    )
+
+    # Status Flow: Candidates meeting criteria transition to 'Shortlisted (Pending Approval)'
+    initial_status = "Shortlisted (Pending Approval)" if final_score >= 60.0 else "Screened"
+    hr_db.update_candidate_shortlist_status(job_id, candidate_id, initial_status)
+
     return {
         "candidate_id": candidate_id,
         "name": candidate_name,
         "filename": filename,
         "score": final_score,
         "fit": fit_category,
+        "status": initial_status,
         "score_breakdown": score_breakdown,
         "analysis": analysis
     }

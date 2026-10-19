@@ -8,7 +8,7 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -95,11 +95,120 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
-    <!--  MAIN APP                                                  -->
+    <!--  HOME PAGE: WORKSPACE CHOOSER                              -->
     <!-- ═══════════════════════════════════════════════════════════ -->
-    <div class="app-container">
-        <!-- Sidebar: Uploads & Document Registry -->
-        <aside class="sidebar">
+    <div class="home-layout hidden" id="view-home">
+        <!-- Top Navigation Bar -->
+        <header class="home-topbar">
+            <div class="logo">
+                <i data-lucide="cpu" class="logo-icon"></i>
+                <span>RAG <span class="accent-text">Pro</span></span>
+            </div>
+            <div class="topbar-user-area">
+                <div class="user-session-pill">
+                    <div class="user-avatar-small"><i data-lucide="user-check"></i></div>
+                    <div class="user-meta">
+                        <span class="user-name" id="home-user-name">User</span>
+                        <span class="user-role-badge">Authenticated</span>
+                    </div>
+                </div>
+                <button class="topbar-logout-btn" id="home-logout-btn" onclick="handleLogout()" title="Log out">
+                    <i data-lucide="log-out"></i>
+                    <span>Log out</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Home Hero & Chooser Cards -->
+        <main class="home-main">
+            <div class="home-hero">
+                <h1 class="home-headline">What would you like to work on today?</h1>
+                <p class="home-subtext">Pick a workspace to continue. You can switch between them anytime from the top bar.</p>
+            </div>
+
+            <div class="workspace-cards-grid">
+                <!-- Card 1: Knowledge Assistant -->
+                <button class="workspace-card" id="card-chat" onclick="navigateTo('chat')">
+                    <div class="card-preview-strip preview-strip-chat" aria-hidden="true">
+                        <div class="mini-bubble mini-user">What is our leave policy for Q4?</div>
+                        <div class="mini-bubble mini-bot">12 days paid leave per HR Playbook §3.2</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-icon-title">
+                            <div class="card-icon"><i data-lucide="message-square"></i></div>
+                            <h3>Knowledge Assistant</h3>
+                        </div>
+                        <p class="card-desc">Upload playbooks and documents, then ask questions. Answers come only from your files.</p>
+                        <div class="card-action-link">
+                            <span>Open chatbot</span>
+                            <i data-lucide="arrow-right"></i>
+                        </div>
+                    </div>
+                </button>
+
+                <!-- Card 2: JD & Resume Matcher -->
+                <button class="workspace-card" id="card-matcher" onclick="navigateTo('matcher')">
+                    <div class="card-preview-strip preview-strip-matcher" aria-hidden="true">
+                        <div class="mini-matcher-row">
+                            <span class="mini-matcher-title">Sr. Python Engineer</span>
+                            <span class="mini-matcher-score">92% Match</span>
+                        </div>
+                        <div class="mini-chips">
+                            <span class="mini-chip">Python</span>
+                            <span class="mini-chip">FastAPI</span>
+                            <span class="mini-chip">Docker</span>
+                            <span class="mini-chip">PostgreSQL</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-icon-title">
+                            <div class="card-icon"><i data-lucide="users"></i></div>
+                            <h3>JD & Resume Matcher</h3>
+                        </div>
+                        <p class="card-desc">Upload a job description and resumes. Get a match score and a shortlist in one pass.</p>
+                        <div class="card-action-link">
+                            <span>Open matcher</span>
+                            <i data-lucide="arrow-right"></i>
+                        </div>
+                    </div>
+                </button>
+
+                <!-- Card 3: Approval Review -->
+                <button class="workspace-card" id="card-approval" onclick="navigateTo('approval')">
+                    <div class="card-preview-strip preview-strip-approval" aria-hidden="true">
+                        <div class="mini-approval-row">
+                            <div class="mini-candidate-info">
+                                <span class="mini-cand-name">Alex Rivera</span>
+                                <span class="mini-cand-fit">94% · Strong Fit</span>
+                            </div>
+                            <span class="mini-approve-btn">Approve & Send</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-icon-title">
+                            <div class="card-icon"><i data-lucide="shield-check"></i></div>
+                            <div class="card-title-badge-wrapper">
+                                <h3>Approval Review</h3>
+                                <span class="live-pending-badge" id="home-approval-badge" style="display:none;">0</span>
+                            </div>
+                        </div>
+                        <p class="card-desc">Check why each candidate was shortlisted, then approve before any email is sent.</p>
+                        <div class="card-action-link">
+                            <span>Review candidates</span>
+                            <i data-lucide="arrow-right"></i>
+                        </div>
+                    </div>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  WORKSPACES CONTAINER (/chat, /matcher, /approval)           -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div class="app-container hidden" id="app-container">
+        <!-- Sidebar: Uploads & Document Registry (Shown ONLY in /chat) -->
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
                     <i data-lucide="cpu" class="logo-icon"></i>
@@ -152,7 +261,7 @@
                         <span class="user-name" id="user-name-display">User</span>
                         <span class="user-role">Authenticated</span>
                     </div>
-                    <button class="logout-btn" id="logout-btn" title="Log out">
+                    <button class="logout-btn" id="logout-btn" onclick="handleLogout()" title="Log out">
                         <i data-lucide="log-out"></i>
                     </button>
                 </div>
@@ -164,28 +273,53 @@
         </aside>
 
         <!-- Main Chat / HR Area -->
-        <main class="chat-container">
+        <main class="chat-container" id="main-container">
             <header class="chat-header">
-                <div class="header-info">
-                    <h2 id="view-title">Knowledge Assistant</h2>
-                    <p id="view-subtitle">Grounded in your uploaded playbooks and documentation</p>
+                <!-- Left: Back to All Workspaces + Current View Title -->
+                <div class="header-left">
+                    <button class="back-workspaces-btn" id="btn-back-home" onclick="navigateTo('home')" title="Back to workspace chooser">
+                        <i data-lucide="arrow-left"></i>
+                        <span>All workspaces</span>
+                    </button>
+                    <div class="header-info">
+                        <h2 id="view-title">Knowledge Assistant</h2>
+                        <p id="view-subtitle">Grounded in your uploaded playbooks and documentation</p>
+                    </div>
                 </div>
 
-                <!-- Mode Switcher -->
-                <div class="mode-switch-group">
-                    <button class="mode-btn active" id="mode-rag" onclick="switchAppMode('rag')">
+                <!-- Center: Small Direct Workspace Tabs -->
+                <div class="ws-switcher-tabs" id="ws-switcher-tabs">
+                    <button class="ws-tab-btn active" id="ws-tab-chat" onclick="navigateTo('chat')" title="Switch to Knowledge Assistant">
                         <i data-lucide="message-square"></i>
-                        <span>General RAG</span>
+                        <span>Knowledge Assistant</span>
                     </button>
-                    <button class="mode-btn" id="mode-hr" onclick="switchAppMode('hr')">
+                    <button class="ws-tab-btn" id="ws-tab-matcher" onclick="navigateTo('matcher')" title="Switch to JD & Resume Matcher">
                         <i data-lucide="users"></i>
-                        <span>HR Candidate Matcher</span>
+                        <span>JD & Resume Matcher</span>
+                    </button>
+                    <button class="ws-tab-btn" id="ws-tab-approval" onclick="navigateTo('approval')" title="Switch to Approval Review">
+                        <i data-lucide="shield-check"></i>
+                        <span>Approval Review</span>
+                        <span class="approval-badge-count" id="ws-pending-badge" style="display:none;">0</span>
                     </button>
                 </div>
 
-                <button class="clear-btn" id="clear-chat" title="Clear Conversation">
-                    <i data-lucide="trash-2"></i>
-                </button>
+                <!-- Right: Action (Clear Chat) + User Info & Logout -->
+                <div class="header-right">
+                    <button class="clear-btn" id="clear-chat" title="Clear Conversation">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                    <div class="header-user-pill">
+                        <div class="user-avatar-small"><i data-lucide="user-check"></i></div>
+                        <div class="user-meta">
+                            <span class="user-name" id="top-user-name">User</span>
+                            <span class="user-role-badge">Authenticated</span>
+                        </div>
+                        <button class="topbar-logout-btn icon-only" id="top-logout-btn" onclick="handleLogout()" title="Log out">
+                            <i data-lucide="log-out"></i>
+                        </button>
+                    </div>
+                </div>
             </header>
 
             <!-- GENERAL RAG CHAT VIEW -->
@@ -432,7 +566,453 @@
                 </div>
             </div>
 
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <!--  PHASE 1: SHORTLISTED APPROVAL REVIEW SCREEN                 -->
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <div id="view-approval-review" class="app-view hidden">
+                <div class="approval-dashboard-container">
+                    
+                    <!-- Dashboard Header & KPI Stats -->
+                    <div class="approval-header-card">
+                        <div class="approval-header-info">
+                            <div class="approval-title-row">
+                                <i data-lucide="shield-check" class="approval-title-icon"></i>
+                                <div>
+                                    <h3>Human Shortlist Approval Review</h3>
+                                    <p>Review AI-screened candidate matches, verify evidence citations, and authorize shortlist email dispatch.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="approval-kpi-group">
+                            <div class="kpi-box">
+                                <span class="kpi-num" id="kpi-pending-count">0</span>
+                                <span class="kpi-lbl">Pending Approval</span>
+                            </div>
+                            <div class="kpi-box">
+                                <span class="kpi-num" id="kpi-approved-count">0</span>
+                                <span class="kpi-lbl">Approved</span>
+                            </div>
+                            <div class="kpi-box">
+                                <span class="kpi-num" id="kpi-hold-count">0</span>
+                                <span class="kpi-lbl">On Hold</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Search, Filters, and Sorting Controls -->
+                    <div class="approval-controls-bar">
+                        <!-- Status Filter Pills -->
+                        <div class="approval-filter-tabs">
+                            <button class="appr-tab-btn active" id="appr-filter-pending" onclick="setApprovalStatusFilter('Pending Approval')">
+                                Pending Approval <span class="filter-count" id="appr-count-pending">(0)</span>
+                            </button>
+                            <button class="appr-tab-btn" id="appr-filter-approved" onclick="setApprovalStatusFilter('Approved')">
+                                Approved <span class="filter-count" id="appr-count-approved">(0)</span>
+                            </button>
+                            <button class="appr-tab-btn" id="appr-filter-hold" onclick="setApprovalStatusFilter('On Hold')">
+                                On Hold <span class="filter-count" id="appr-count-hold">(0)</span>
+                            </button>
+                            <button class="appr-tab-btn" id="appr-filter-rejected" onclick="setApprovalStatusFilter('Rejected')">
+                                Rejected <span class="filter-count" id="appr-count-rejected">(0)</span>
+                            </button>
+                            <button class="appr-tab-btn" id="appr-filter-all" onclick="setApprovalStatusFilter('all')">
+                                All Candidates <span class="filter-count" id="appr-count-all">(0)</span>
+                            </button>
+                        </div>
+
+                        <!-- Secondary Filters & Sorts -->
+                        <div class="approval-sort-group">
+                            <div class="search-input-wrapper">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="appr-search-input" placeholder="Search name or role..." oninput="handleApprovalSearch(this.value)">
+                            </div>
+                            <div class="sort-select-wrapper">
+                                <label for="appr-sort-by">Sort by:</label>
+                                <select id="appr-sort-by" onchange="handleApprovalSortChange(this.value)">
+                                    <option value="score_desc">Match Score (High → Low)</option>
+                                    <option value="score_asc">Match Score (Low → High)</option>
+                                    <option value="date_desc">Date (Newest First)</option>
+                                    <option value="name_asc">Name (A → Z)</option>
+                                </select>
+                            </div>
+                            <div class="sort-select-wrapper">
+                                <label for="appr-min-score">Min Score:</label>
+                                <select id="appr-min-score" onchange="handleApprovalMinScoreChange(this.value)">
+                                    <option value="0">All Scores</option>
+                                    <option value="80">≥ 80% (Strong Fit)</option>
+                                    <option value="60">≥ 60% (Moderate+)</option>
+                                    <option value="50">≥ 50%</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shortlisted Approval Table -->
+                    <div class="approval-table-wrapper">
+                        <table class="leaderboard-table approval-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Candidate Name</th>
+                                    <th>Role / Position</th>
+                                    <th>Match Score %</th>
+                                    <th>Status</th>
+                                    <th>Top Matched Skills</th>
+                                    <th>Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="approval-table-body">
+                                <tr>
+                                    <td colspan="8" class="empty-table-msg">
+                                        Loading candidate approval list...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <!--  PHASE 1: CANDIDATE REVIEW & AUTHORIZATION SCREEN             -->
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <div id="view-approval-candidate-review" class="app-view hidden" style="padding: 24px; overflow-y: auto; height: 100%;">
+                
+                <!-- Top Navigation & Sticky Review Actions -->
+                <div class="cd-topbar" style="margin-bottom: 20px;">
+                    <button class="cd-back-btn" onclick="hideApprovalCandidateReview()">
+                        <i data-lucide="chevron-left"></i>
+                        <span>Back to Approval List</span>
+                    </button>
+                    <div class="topbar-status-indicator">
+                        <span>Current Status:</span>
+                        <span class="hr-status-badge" id="ar-current-status-badge">Shortlisted (Pending Approval)</span>
+                    </div>
+                </div>
+
+                <!-- Sticky Decision & Authorization Action Bar -->
+                <div class="approval-action-toolbar">
+                    <div class="toolbar-left">
+                        <div class="toolbar-candidate-info">
+                            <h3 id="ar-cand-header-name">Candidate Name</h3>
+                            <span id="ar-cand-header-role">Applied Role</span>
+                        </div>
+                        <div class="toolbar-score-pill" id="ar-cand-header-score">
+                            <span class="score-val">85%</span>
+                            <span class="score-lbl">Match</span>
+                        </div>
+                    </div>
+
+                    <div class="toolbar-notes-box">
+                        <textarea id="ar-hr-notes-input" placeholder="Optional HR notes (e.g. 'Strong candidate, prioritize tech screen')..." rows="2"></textarea>
+                    </div>
+
+                    <div class="toolbar-buttons-group">
+                        <button class="btn-action-email-preview" onclick="openEmailPreviewModal()" title="Preview Shortlist Email Template">
+                            <i data-lucide="mail"></i>
+                            <span>Preview Email</span>
+                        </button>
+                        <button class="btn-action-hold" onclick="handleCandidateHold()" title="Put Candidate On Hold">
+                            <i data-lucide="pause-circle"></i>
+                            <span>Hold</span>
+                        </button>
+                        <button class="btn-action-reject" onclick="openRejectConfirmationModal()" title="Reject Candidate">
+                            <i data-lucide="x-circle"></i>
+                            <span>Reject</span>
+                        </button>
+                        <button class="btn-action-approve-primary" onclick="openApproveConfirmationModal()" title="Approve and Authorize Shortlist Email">
+                            <i data-lucide="check-circle-2"></i>
+                            <span>Approve & Send Shortlist Mail</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Review Panels Grid -->
+                <div class="ar-review-grid">
+                    
+                    <!-- Left Column: Executive Summary, Criteria Matrix, Side-by-Side Comparison -->
+                    <div class="ar-left-col">
+                        
+                        <!-- Panel 1: AI Executive Summary & Red Flags -->
+                        <div class="ar-panel-card ar-summary-panel">
+                            <div class="panel-header">
+                                <div class="header-icon-title">
+                                    <i data-lucide="sparkles" style="color: #6366f1;"></i>
+                                    <h4>AI Match Summary & Red Flags</h4>
+                                </div>
+                                <span class="ai-generated-tag">AI Generated (Audited)</span>
+                            </div>
+                            <div class="summary-body">
+                                <p id="ar-summary-text" class="ar-executive-summary">
+                                    Loading AI match executive summary...
+                                </p>
+                                <div class="red-flags-container">
+                                    <div class="flags-title"><i data-lucide="alert-triangle"></i> Red Flags & Cautionary Notes</div>
+                                    <ul id="ar-red-flags-list" class="flags-list">
+                                        <li>No major red flags detected.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Panel 2: Shortlisting Criteria Pass/Fail Matrix -->
+                        <div class="ar-panel-card">
+                            <div class="panel-header">
+                                <div class="header-icon-title">
+                                    <i data-lucide="clipboard-check" style="color: #10b981;"></i>
+                                    <h4>Shortlisting Criteria Evaluation (Pass / Fail)</h4>
+                                </div>
+                            </div>
+                            <div class="criteria-table-wrapper">
+                                <table class="criteria-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Rule / Criterion</th>
+                                            <th>Requirement</th>
+                                            <th>Candidate Metric</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ar-criteria-table-body">
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Panel 3: Side-by-Side JD Requirements vs. Candidate Evidence -->
+                        <div class="ar-panel-card">
+                            <div class="panel-header">
+                                <div class="header-icon-title">
+                                    <i data-lucide="columns" style="color: #00f2fe;"></i>
+                                    <h4>Side-by-Side: Job Requirements vs. Resume Evidence</h4>
+                                </div>
+                            </div>
+                            <div class="side-by-side-container">
+                                <!-- Left Column: Job Description Requirements -->
+                                <div class="sbs-col sbs-jd">
+                                    <div class="sbs-col-header">
+                                        <i data-lucide="briefcase"></i>
+                                        <span>Target Job Description (JD)</span>
+                                    </div>
+                                    <div class="sbs-body" id="ar-sbs-jd-content">
+                                        <!-- Rendered dynamically -->
+                                    </div>
+                                </div>
+                                <!-- Right Column: Candidate Evidence & Citations -->
+                                <div class="sbs-col sbs-resume">
+                                    <div class="sbs-col-header">
+                                        <i data-lucide="file-check"></i>
+                                        <span>Candidate Resume Evidence & Quotes</span>
+                                    </div>
+                                    <div class="sbs-body" id="ar-sbs-resume-content">
+                                        <!-- Rendered dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Panel 4: Resume Document Text Preview -->
+                        <div class="ar-panel-card">
+                            <div class="panel-header">
+                                <div class="header-icon-title">
+                                    <i data-lucide="file-text" style="color: #94a3b8;"></i>
+                                    <h4>Resume Document Text Preview</h4>
+                                </div>
+                                <span class="file-name-tag" id="ar-resume-preview-filename">resume.pdf</span>
+                            </div>
+                            <div class="resume-preview-box" id="ar-resume-preview-text">
+                                Loading resume preview...
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Right Column: Scores, Skills Classification, Experience Match -->
+                    <div class="ar-right-col">
+
+                        <!-- Card A: Overall Match Score & Component Breakdown -->
+                        <div class="ar-panel-card">
+                            <div class="panel-header">
+                                <div class="header-icon-title">
+                                    <i data-lucide="pie-chart" style="color: #a855f7;"></i>
+                                    <h4>Score Breakdown (100% Deterministic)</h4>
+                                </div>
+                            </div>
+                            <div class="score-breakdown-container">
+                                <div class="overall-score-display">
+                                    <div class="big-score-gauge" id="ar-big-score-gauge">85%</div>
+                                    <div class="score-meta">
+                                        <span class="fit-label" id="ar-fit-category-label">Strong Fit</span>
+                                        <span class="sub-label">Mathematical weighted score</span>
+                                    </div>
+                                </div>
+                                <div class="component-bars-list" id="ar-component-bars">
+                                    <!-- Dynamic breakdown bars -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card B: Skills Categorization (Matched, Missing, Bonus) -->
+                        <div class="ar-panel-card">
+                            <div class="panel-header">
+                                <div class="header-icon-title">
+                                    <i data-lucide="layers" style="color: #38bdf8;"></i>
+                                    <h4>Categorized Technical Skills</h4>
+                                </div>
+                            </div>
+                            <div class="skills-categorized-box">
+                                <div class="skill-category-group">
+                                    <div class="skill-cat-title"><i data-lucide="check" style="color:#10b981;"></i> Matched Required Skills</div>
+                                    <div class="chips-flex" id="ar-chips-matched"></div>
+                                </div>
+                                <div class="skill-category-group">
+                                    <div class="skill-cat-title"><i data-lucide="x" style="color:#ef4444;"></i> Missing Required Skills</div>
+                                    <div class="chips-flex" id="ar-chips-missing"></div>
+                                </div>
+                                <div class="skill-category-group">
+                                    <div class="skill-cat-title"><i data-lucide="sparkles" style="color:#a855f7;"></i> Bonus / Additional Competencies</div>
+                                    <div class="chips-flex" id="ar-chips-bonus"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card C: Experience Match Details -->
+                        <div class="ar-panel-card">
+                            <div class="panel-header">
+                                <div class="header-icon-title">
+                                    <i data-lucide="clock" style="color: #f59e0b;"></i>
+                                    <h4>Experience & Tenure Match</h4>
+                                </div>
+                            </div>
+                            <div class="exp-match-content" id="ar-exp-match-content">
+                                <!-- Dynamic experience metrics -->
+                            </div>
+                        </div>
+
+                        <!-- Card D: Audit Trail & Approval History -->
+                        <div class="ar-panel-card">
+                            <div class="panel-header">
+                                <div class="header-icon-title">
+                                    <i data-lucide="history" style="color: #94a3b8;"></i>
+                                    <h4>Review History & Audit Trail</h4>
+                                </div>
+                            </div>
+                            <div class="audit-trail-list" id="ar-audit-trail-list">
+                                <div class="audit-empty">No previous approval actions recorded.</div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
         </main>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  CONFIRMATION & PREVIEW MODALS                               -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+
+    <!-- APPROVE CONFIRMATION MODAL -->
+    <div class="auth-overlay hidden" id="approve-confirm-modal">
+        <div class="auth-modal" style="max-width: 520px;">
+            <div class="auth-modal-header">
+                <div style="display:flex; align-items:center; gap: 10px;">
+                    <i data-lucide="check-circle" style="color: #10b981; width:24px; height:24px;"></i>
+                    <h3 style="font-size: 1.15rem; font-weight:700;">Authorize Shortlist Approval</h3>
+                </div>
+                <button class="close-modal-btn" onclick="closeApproveConfirmationModal()">&times;</button>
+            </div>
+            <div style="padding: 16px 0; color: #cbd5e1; font-size: 0.95rem; line-height: 1.5;">
+                <p>Are you sure you want to approve <strong id="modal-approve-cand-name" style="color:#ffffff;">Candidate</strong>?</p>
+                <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; padding: 12px; margin: 14px 0; font-size: 0.85rem; color: #a5b4fc;">
+                    <i data-lucide="info" style="display:inline; width:14px; height:14px; margin-right:4px;"></i>
+                    <strong>Phase 1 Human-Approval:</strong> The candidate status will update to <code>Approved</code>. In Phase 1, email sending is stubbed and logged; SMTP sending will execute in Phase 2.
+                </div>
+                <p style="font-size: 0.85rem; color: #94a3b8;">The audit trail will record your approval timestamp and user credentials.</p>
+            </div>
+            <div style="display:flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+                <button class="action-btn-secondary" onclick="closeApproveConfirmationModal()">Cancel</button>
+                <button class="action-btn-primary" id="btn-modal-confirm-approve" onclick="confirmApproveCandidate()" style="background: #10b981;">
+                    <i data-lucide="check"></i>
+                    <span>Confirm & Authorize</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REJECTION CONFIRMATION MODAL -->
+    <div class="auth-overlay hidden" id="reject-confirm-modal">
+        <div class="auth-modal" style="max-width: 520px;">
+            <div class="auth-modal-header">
+                <div style="display:flex; align-items:center; gap: 10px;">
+                    <i data-lucide="alert-octagon" style="color: #ef4444; width:24px; height:24px;"></i>
+                    <h3 style="font-size: 1.15rem; font-weight:700;">Reject Candidate</h3>
+                </div>
+                <button class="close-modal-btn" onclick="closeRejectConfirmationModal()">&times;</button>
+            </div>
+            <div style="padding: 16px 0; color: #cbd5e1; font-size: 0.95rem; line-height: 1.5;">
+                <p>You are marking <strong id="modal-reject-cand-name" style="color:#ffffff;">Candidate</strong> as Rejected.</p>
+                <div class="form-group" style="margin-top: 12px;">
+                    <label for="modal-reject-reason-select" style="font-size: 0.85rem; color:#94a3b8;">Rejection Reason:</label>
+                    <select id="modal-reject-reason-select" class="form-select" style="width: 100%; background: #0f172a; border: 1px solid #334155; color: #fff; padding: 8px; border-radius: 6px; margin-top: 4px;">
+                        <option value="Mandatory technical skills not met">Mandatory technical skills not met</option>
+                        <option value="Experience years below minimum requirement">Experience years below minimum requirement</option>
+                        <option value="Overall qualification score below threshold">Overall qualification score below threshold</option>
+                        <option value="Education or degree qualification mismatch">Education or degree qualification mismatch</option>
+                        <option value="Candidate profile outside target domain">Candidate profile outside target domain</option>
+                        <option value="Other / Role filled">Other / Role filled</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+                <button class="action-btn-secondary" onclick="closeRejectConfirmationModal()">Cancel</button>
+                <button class="action-btn-primary" id="btn-modal-confirm-reject" onclick="confirmRejectCandidate()" style="background: #ef4444;">
+                    <i data-lucide="x"></i>
+                    <span>Confirm Rejection</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EMAIL PREVIEW MODAL -->
+    <div class="auth-overlay hidden" id="email-preview-modal">
+        <div class="auth-modal" style="max-width: 720px; width: 90%; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="auth-modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i data-lucide="mail" style="color: var(--accent);"></i>
+                    <h3 style="font-size: 1.15rem; font-weight: 700;">Shortlist Email Preview</h3>
+                </div>
+                <button class="close-modal-btn" onclick="closeEmailPreviewModal()">&times;</button>
+            </div>
+            
+            <div class="email-preview-meta-box">
+                <div class="meta-row"><strong>To:</strong> <span id="ep-to-email">candidate@example.com</span></div>
+                <div class="meta-row"><strong>Subject:</strong> <span id="ep-subject">Congratulations! You've been Shortlisted</span></div>
+                <div class="meta-row"><strong>Sender:</strong> <span id="ep-sender">HR Talent Acquisition</span></div>
+            </div>
+
+            <!-- Email Format Tabs (HTML vs Plain Text) -->
+            <div class="email-view-tabs">
+                <button class="email-tab-btn active" id="btn-email-tab-html" onclick="switchEmailTab('html')">HTML View</button>
+                <button class="email-tab-btn" id="btn-email-tab-text" onclick="switchEmailTab('text')">Plain Text View</button>
+            </div>
+
+            <div class="email-preview-body-container" style="flex: 1; overflow-y: auto;">
+                <div id="ep-html-view" class="email-html-frame"></div>
+                <pre id="ep-text-view" class="email-text-box hidden"></pre>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; pt-2; border-top: 1px solid var(--border-color);">
+                <span style="font-size: 0.8rem; color: #94a3b8;"><i data-lucide="info" style="display:inline; width:12px; height:12px;"></i> Phase 1 email preview. Email will be sent upon approval in Phase 2.</span>
+                <button class="action-btn-secondary" onclick="closeEmailPreviewModal()">Close Preview</button>
+            </div>
+        </div>
     </div>
 
     <!-- RESUME PREVIEW MODAL -->

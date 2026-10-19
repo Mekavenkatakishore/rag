@@ -40,4 +40,13 @@ class Settings:
     HYBRID_SEMANTIC_WEIGHT: float = float(os.getenv("HYBRID_SEMANTIC_WEIGHT", "0.5"))
     HYBRID_KEYWORD_WEIGHT: float = float(os.getenv("HYBRID_KEYWORD_WEIGHT", "0.5"))
 
+    # SMTP Configuration (Phase 2 Email System)
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "sandbox.smtp.mailtrap.io")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "2525"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "Talent Acquisition Team")
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "careers@company.example.com")
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() in ("true", "1", "yes")
+
 settings = Settings()

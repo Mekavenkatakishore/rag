@@ -27,11 +27,16 @@ def initialize_db():
                 email            TEXT    NOT NULL UNIQUE,
                 hashed_password  TEXT    NOT NULL,
                 salt             TEXT    NOT NULL,
+                role             TEXT    NOT NULL DEFAULT 'hr',
                 created_at       TEXT    NOT NULL
             )
         """)
+        try:
+            cursor.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'hr'")
+        except sqlite3.OperationalError:
+            pass
 
-def create_user(username: str, email: str, hashed_password: str, salt: str) -> dict:
+def create_user(username: str, email: str, hashed_password: str, salt: str, role: str = "hr") -> dict:
     """Inserts a new user row into the users table."""
     created_at = datetime.datetime.utcnow().isoformat()
     try:
@@ -39,10 +44,10 @@ def create_user(username: str, email: str, hashed_password: str, salt: str) -> d
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO users (username, email, hashed_password, salt, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO users (username, email, hashed_password, salt, role, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (username, email, hashed_password, salt, created_at)
+                (username, email, hashed_password, salt, role, created_at)
             )
             user_id = cursor.lastrowid
     except sqlite3.IntegrityError as e:
@@ -53,7 +58,7 @@ def create_user(username: str, email: str, hashed_password: str, salt: str) -> d
         else:
             raise ValueError("Registration failed due to a conflict.")
 
-    return {"id": user_id, "username": username, "email": email, "created_at": created_at}
+    return {"id": user_id, "username": username, "email": email, "role": role, "created_at": created_at}
 
 def get_user_by_username(username: str) -> dict | None:
     """Fetches a user row by username."""
