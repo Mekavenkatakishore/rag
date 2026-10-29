@@ -7,6 +7,7 @@ audit logging, match details synthesis, and status transitions.
 
 import os
 from typing import Dict, Any, List, Optional
+from fastapi import BackgroundTasks
 
 from app.db import hr_db
 from app.services.hr import email_service
@@ -285,15 +286,23 @@ def get_candidate_match_details(candidate_id: str) -> Dict[str, Any]:
             except Exception:
                 preview_text = "Resume file uploaded and verified."
 
+    cand_direct = hr_db.get_candidate_by_id(candidate_id)
+    cand_name = (cand_direct.get("name") if cand_direct else None) or (cand_row.get("name") if cand_row else "Candidate")
+    raw_email = (cand_direct.get("email") if cand_direct else None) or (cand_row.get("email") if cand_row else "") or ""
+    cand_email = raw_email if raw_email != "Not Specified" else ""
+    cand_role = (cand_direct.get("role") if cand_direct else None) or (cand_row.get("role") if cand_row else "Candidate")
+    cand_filename = (cand_direct.get("filename") if cand_direct else None) or (cand_row.get("filename") if cand_row else "resume.pdf")
+    cand_status = (cand_direct.get("candidate_status") if cand_direct else None) or (cand_row.get("status") if cand_row else "Screened")
+
     return {
         "status": "success",
         "candidate_id": candidate_id,
         "job_id": job_id,
-        "name": cand_row.get("name") if cand_row else "Candidate",
-        "email": cand_row.get("email") if cand_row else "Not Specified",
-        "role": cand_row.get("role") if cand_row else "Candidate",
-        "filename": cand_row.get("filename") if cand_row else "resume.pdf",
-        "candidate_status": cand_row.get("status") if cand_row else "Screened",
+        "name": cand_name,
+        "email": cand_email,
+        "role": cand_role,
+        "filename": cand_filename,
+        "candidate_status": cand_status,
         "overall_score": match_data.get("overall_score", 0.0),
         "fit_category": match_data.get("fit_category", "Pending"),
         "score_breakdown": match_data.get("score_breakdown", {}),
@@ -316,13 +325,40 @@ def get_candidate_match_details(candidate_id: str) -> Dict[str, Any]:
 def approve_candidate(
     candidate_id: str,
     current_user: dict,
-    hr_notes: Optional[str] = None
+    hr_notes: Optional[str] = None,
+    background_tasks: Optional[BackgroundTasks] = None,
+    custom_subject: Optional[str] = None,
+    custom_next_step: Optional[str] = None,
+    candidate_email: Optional[str] = None,
+    backoff_factor: float = 1.0
 ) -> Dict[str, Any]:
     """
     Handles human approval of a shortlisted candidate.
-    Phase 1: updates status to 'Approved', logs audit trail, and stubs email delivery.
+    Phase 2: updates status to 'Approved', logs audit trail, and enqueues background SMTP email delivery.
     """
     approver = current_user.get("username") or "hr_user"
+
+    cand_existing = hr_db.get_candidate_by_id(candidate_id)
+    if not cand_existing:
+        raise ValueError(f"Candidate ID '{candidate_id}' not found.")
+
+    # Determine target email: either explicitly provided or existing in DB
+    target_email = (candidate_email or "").strip()
+    if not target_email or target_email.lower() == "not specified":
+        target_email = (cand_existing.get("email") or "").strip()
+    if target_email.lower() == "not specified":
+        target_email = ""
+
+    if background_tasks is not None and not target_email:
+        raise ValueError(
+            f"Candidate '{candidate_id}' has no email address on file. Please enter a recipient email address in the confirmation popup before approving."
+        )
+
+    if target_email:
+        if not email_service.validate_email_address(target_email):
+            raise ValueError(f"Invalid email address '{target_email}'. Please check the format.")
+        # Persist updated email to candidate table
+        hr_db.update_candidate_email(candidate_id, target_email)
 
     # Update candidate in database
     updated = hr_db.update_candidate_approval(
@@ -334,6 +370,8 @@ def approve_candidate(
     if not updated:
         raise ValueError(f"Candidate ID '{candidate_id}' not found.")
 
+    updated["email"] = target_email
+
     # Record Audit Log
     hr_db.record_audit_log(
         candidate_id=candidate_id,
@@ -341,27 +379,43 @@ def approve_candidate(
         action="APPROVED",
         performed_by=approver,
         hr_notes=hr_notes,
-        details={"previous_status": "Shortlisted (Pending Approval)", "new_status": "Approved"}
+        details={"previous_status": "Shortlisted (Pending Approval)", "new_status": "Approved", "target_email": target_email}
     )
 
-    # Stub Email Trigger for Phase 1
-    email_res = email_service.send_shortlist_email_stub(
-        candidate_id=candidate_id,
-        to_email=updated.get("email") or "candidate@example.com",
-        candidate_name=updated.get("name") or candidate_id,
-        job_title="Shortlisted Position",
-        approved_by=approver
-    )
+    email_status = "stubbed"
+    candidate_status = "Approved"
+
+    if background_tasks is not None:
+        email_res = email_service.enqueue_candidate_shortlist_email(
+            candidate=updated,
+            approver=approver,
+            background_tasks=background_tasks,
+            custom_subject=custom_subject,
+            custom_next_step=custom_next_step,
+            backoff_factor=backoff_factor
+        )
+        email_status = email_res.get("status", "queued")
+        candidate_status = "Approved & Email Queued"
+    else:
+        email_res = email_service.send_shortlist_email_stub(
+            candidate_id=candidate_id,
+            to_email=updated.get("email") or "candidate@example.com",
+            candidate_name=updated.get("name") or candidate_id,
+            job_title="Shortlisted Position",
+            approved_by=approver
+        )
+        email_status = email_res.get("status", "stubbed")
 
     return {
         "status": "success",
         "message": f"Candidate '{candidate_id}' successfully approved by {approver}.",
         "candidate_id": candidate_id,
-        "candidate_status": "Approved",
+        "candidate_status": candidate_status,
         "approved_by": approver,
         "approved_at": updated.get("approved_at"),
-        "email_status": email_res.get("status", "stubbed")
+        "email_status": email_status
     }
+
 
 
 def reject_candidate(

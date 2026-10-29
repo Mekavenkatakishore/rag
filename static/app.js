@@ -1245,9 +1245,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const matchedSkills = (profile.matched_required_skills || []).map(s => `<span class="skill-chip matched">${s}</span>`).join(' ');
             const isShortlisted = cand.candidate_status === 'Shortlisted';
 
+            const candEmail = cand.email || profile.email || '';
+            const emailHtml = candEmail
+                ? `<div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px; cursor:pointer;" onclick="quickEditCandidateEmail('${cand.candidate_id}', '${candEmail}', event)" title="Click to edit email"><i data-lucide="mail" style="width:11px; height:11px; display:inline;"></i> ${candEmail} <span style="opacity:0.6; font-size:0.7rem;">✎</span></div>`
+                : `<div style="font-size:0.72rem; color:#f59e0b; margin-top:2px; cursor:pointer;" onclick="quickEditCandidateEmail('${cand.candidate_id}', '', event)" title="Click to add email"><i data-lucide="plus-circle" style="width:11px; height:11px; display:inline;"></i> Add email</div>`;
+
             tr.innerHTML = `
                 <td><strong>#${cand.rank || 1}</strong></td>
-                <td>${cand.name || cand.filename}</td>
+                <td>
+                    <div style="font-weight:600;">${cand.name || cand.filename}</div>
+                    ${emailHtml}
+                </td>
                 <td><strong>${cand.score}%</strong></td>
                 <td><span class="fit-badge ${fitClass}">${cand.fit || 'Pending'}</span></td>
                 <td><div class="skills-chip-box">${matchedSkills || 'None'}</div></td>
@@ -1384,6 +1392,11 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('cd-spec-avail').textContent = profile.availability || 'Not Specified';
             document.getElementById('cd-spec-ctc').textContent = profile.ctc || 'Not Specified';
             document.getElementById('cd-spec-date').textContent = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+            const cdEmailInput = document.getElementById('cd-spec-email-input');
+            if (cdEmailInput) {
+                cdEmailInput.value = data.email || profile.email || '';
+            }
 
             // Resume File Card
             document.getElementById('cd-resume-filename').textContent = profile.document || `${candidateId}.pdf`;
@@ -1807,7 +1820,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const pendingCount = approvalCandidatesList.filter(c => 
             c.status === 'Pending Approval' || c.status === 'Shortlisted (Pending Approval)' || c.status === 'Shortlisted'
         ).length;
-        const approvedCount = approvalCandidatesList.filter(c => c.status === 'Approved').length;
+        const approvedCount = approvalCandidatesList.filter(c => 
+            c.status === 'Approved' || (c.status && (c.status.includes('Email Sent') || c.status.includes('Email Queued') || c.status.includes('Email Failed')))
+        ).length;
         const holdCount = approvalCandidatesList.filter(c => c.status === 'On Hold').length;
         const rejectedCount = approvalCandidatesList.filter(c => c.status === 'Rejected').length;
         const allCount = approvalCandidatesList.length;
@@ -1909,6 +1924,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 filtered = filtered.filter(c => 
                     c.status === 'Pending Approval' || c.status === 'Shortlisted (Pending Approval)' || c.status === 'Shortlisted'
                 );
+            } else if (activeApprovalStatusFilter === 'Approved') {
+                filtered = filtered.filter(c => 
+                    c.status === 'Approved' || (c.status && (c.status.includes('Email Sent') || c.status.includes('Email Queued') || c.status.includes('Email Failed')))
+                );
             } else {
                 filtered = filtered.filter(c => c.status === activeApprovalStatusFilter);
             }
@@ -1956,10 +1975,22 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let statusBadgeClass = 'pending-approval';
             let statusLabel = cand.status || 'Pending Approval';
-            if (statusLabel === 'Approved') statusBadgeClass = 'approved';
-            else if (statusLabel === 'On Hold') statusBadgeClass = 'on-hold';
-            else if (statusLabel === 'Rejected') statusBadgeClass = 'rejected';
-            else if (statusLabel.includes('Pending') || statusLabel.includes('Shortlisted')) {
+            if (statusLabel === 'Approved') {
+                statusBadgeClass = 'approved';
+            } else if (statusLabel.includes('Email Sent')) {
+                statusBadgeClass = 'email-sent';
+                statusLabel = 'Approved & Sent';
+            } else if (statusLabel.includes('Email Failed')) {
+                statusBadgeClass = 'email-failed';
+                statusLabel = 'Email Failed';
+            } else if (statusLabel.includes('Email Queued')) {
+                statusBadgeClass = 'queued';
+                statusLabel = 'Email Queued';
+            } else if (statusLabel === 'On Hold') {
+                statusBadgeClass = 'on-hold';
+            } else if (statusLabel === 'Rejected') {
+                statusBadgeClass = 'rejected';
+            } else if (statusLabel.includes('Pending') || statusLabel.includes('Shortlisted')) {
                 statusBadgeClass = 'pending-approval';
                 statusLabel = 'Pending Approval';
             }
@@ -1970,11 +2001,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const formattedDate = cand.date ? cand.date.substring(0, 10) : 'Recent';
 
+            const apprEmailDisplay = cand.email 
+                ? `<div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px; cursor: pointer;" onclick="quickEditCandidateEmail('${cand.candidate_id}', '${cand.email}', event)" title="Click to edit email"><i data-lucide="mail" style="width:11px; height:11px; display:inline;"></i> ${cand.email} <span style="opacity:0.6; font-size:0.7rem;">✎</span></div>`
+                : `<div style="font-size: 0.72rem; color: #f59e0b; margin-top: 2px; cursor: pointer;" onclick="quickEditCandidateEmail('${cand.candidate_id}', '', event)" title="Click to add email"><i data-lucide="plus-circle" style="width:11px; height:11px; display:inline;"></i> Add email</div>`;
+
             tr.innerHTML = `
                 <td><strong>#${idx + 1}</strong></td>
                 <td>
                     <div style="font-weight: 600; color: #f1f5f9;">${cand.name}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${cand.email || ''}</div>
+                    ${apprEmailDisplay}
                 </td>
                 <td>
                     <div style="font-size: 0.82rem; color: #cbd5e1;">${cand.role || cand.job_title}</div>
@@ -2062,7 +2097,16 @@ document.addEventListener('DOMContentLoaded', () => {
             let statusLabel = d.candidate_status || 'Pending Approval';
             let badgeClass = 'pending-approval';
             if (statusLabel === 'Approved') badgeClass = 'approved';
-            else if (statusLabel === 'On Hold') badgeClass = 'on-hold';
+            else if (statusLabel.includes('Email Sent')) {
+                badgeClass = 'email-sent';
+                statusLabel = 'Approved & Sent';
+            } else if (statusLabel.includes('Email Failed')) {
+                badgeClass = 'email-failed';
+                statusLabel = 'Email Failed';
+            } else if (statusLabel.includes('Email Queued')) {
+                badgeClass = 'queued';
+                statusLabel = 'Email Queued';
+            } else if (statusLabel === 'On Hold') badgeClass = 'on-hold';
             else if (statusLabel === 'Rejected') badgeClass = 'rejected';
             else badgeClass = 'pending-approval';
 
@@ -2070,8 +2114,35 @@ document.addEventListener('DOMContentLoaded', () => {
             statusBadge.textContent = statusLabel;
         }
 
+        // Show/Hide Retry button and update Approve button state
+        const retryBtn = document.getElementById('ar-btn-retry-email');
+        const approveBtn = document.getElementById('btn-action-approve-primary');
+        if (retryBtn) {
+            if ((d.candidate_status || '').includes('Email Failed')) {
+                retryBtn.classList.remove('hidden');
+            } else {
+                retryBtn.classList.add('hidden');
+            }
+        }
+        if (approveBtn) {
+            if ((d.candidate_status || '').includes('Email Sent')) {
+                approveBtn.disabled = true;
+                approveBtn.title = 'Shortlist email already delivered';
+                approveBtn.style.opacity = '0.6';
+            } else {
+                approveBtn.disabled = false;
+                approveBtn.title = 'Approve and Authorize Shortlist Email';
+                approveBtn.style.opacity = '1';
+            }
+        }
+
         if (notesInput) {
             notesInput.value = d.hr_notes || "";
+        }
+
+        const candEmailInput = document.getElementById('ar-cand-email-input');
+        if (candEmailInput) {
+            candEmailInput.value = (d.email && d.email !== 'Not Specified') ? d.email : '';
         }
 
         // 2. Summary & Red Flags
@@ -2288,12 +2359,184 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ─── Candidate Email Management Handlers ───────────────────────────────
+
+    let currentQuickEmailCandidateId = null;
+
+    window.saveCandidateEmailDirectly = async function() {
+        if (!currentReviewCandidateId) return;
+        const input = document.getElementById('ar-cand-email-input');
+        const email = input ? input.value.trim() : "";
+        if (!email) {
+            showErrorToast("Please enter a valid candidate email address.");
+            if (input) input.focus();
+            return;
+        }
+
+        const btn = document.getElementById('btn-save-review-email');
+        if (btn) btn.disabled = true;
+
+        try {
+            const res = await authFetch(`${API_BASE}/candidates/${currentReviewCandidateId}/email`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showSuccessToast(`Candidate email saved as ${email}`);
+                if (currentReviewCandidateData) {
+                    currentReviewCandidateData.email = email;
+                }
+                const modalEmail = document.getElementById('modal-approve-cand-email');
+                if (modalEmail) modalEmail.value = email;
+                fetchCandidateAuditLogs(currentReviewCandidateId);
+                fetchApprovalCandidates();
+            } else {
+                showErrorToast(extractErrorMessage(data, 'Failed to save email.'));
+            }
+        } catch (err) {
+            console.error("Error saving candidate email:", err);
+            showErrorToast('Failed to save email: server unreachable.');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    };
+
+    window.saveCandidateEmailFromDeepDive = async function() {
+        if (!currentActiveCandidateId) return;
+        const input = document.getElementById('cd-spec-email-input');
+        const email = input ? input.value.trim() : "";
+        if (!email) {
+            showErrorToast("Please enter a valid email address.");
+            if (input) input.focus();
+            return;
+        }
+
+        try {
+            const res = await authFetch(`${API_BASE}/candidates/${currentActiveCandidateId}/email`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showSuccessToast(`Candidate email saved as ${email}`);
+                if (window.allLoadedCandidates) {
+                    const match = window.allLoadedCandidates.find(c => c.candidate_id === currentActiveCandidateId);
+                    if (match) match.email = email;
+                    renderFilteredLeaderboardRows(window.allLoadedCandidates);
+                }
+            } else {
+                showErrorToast(extractErrorMessage(data, 'Failed to save email.'));
+            }
+        } catch (err) {
+            console.error("Error saving candidate email from deep dive:", err);
+            showErrorToast('Failed to save email: server unreachable.');
+        }
+    };
+
+    window.quickEditCandidateEmail = function(candidateId, currentEmail, e) {
+        if (e) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+        currentQuickEmailCandidateId = candidateId;
+
+        let candName = candidateId;
+        const fromAll = (window.allLoadedCandidates || []).find(c => c.candidate_id === candidateId);
+        if (fromAll && fromAll.name) candName = fromAll.name;
+        const fromApproval = (window.allApprovalCandidates || []).find(c => c.candidate_id === candidateId);
+        if (fromApproval && fromApproval.name) candName = fromApproval.name;
+
+        const nameEl = document.getElementById('quick-email-cand-name');
+        if (nameEl) nameEl.textContent = candName;
+
+        const inp = document.getElementById('quick-email-input');
+        if (inp) {
+            inp.value = (currentEmail && currentEmail !== 'Not Specified') ? currentEmail : '';
+            setTimeout(() => { inp.focus(); inp.select(); }, 80);
+        }
+
+        const modal = document.getElementById('quick-email-modal');
+        if (modal) modal.classList.remove('hidden');
+        lucide.createIcons();
+    };
+
+    window.closeQuickEmailModal = function() {
+        const modal = document.getElementById('quick-email-modal');
+        if (modal) modal.classList.add('hidden');
+        currentQuickEmailCandidateId = null;
+    };
+
+    window.submitQuickEmailModal = async function() {
+        if (!currentQuickEmailCandidateId) return;
+        const inp = document.getElementById('quick-email-input');
+        const email = inp ? inp.value.trim() : '';
+        if (!email) {
+            showErrorToast("Please enter a valid email address.");
+            if (inp) inp.focus();
+            return;
+        }
+
+        const btn = document.getElementById('btn-save-quick-email');
+        if (btn) btn.disabled = true;
+
+        try {
+            const res = await authFetch(`${API_BASE}/candidates/${currentQuickEmailCandidateId}/email`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                closeQuickEmailModal();
+                showSuccessToast(`Email updated to ${email}`);
+                if (window.allApprovalCandidates) {
+                    const match = window.allApprovalCandidates.find(c => c.candidate_id === currentQuickEmailCandidateId);
+                    if (match) match.email = email;
+                    renderApprovalTable();
+                }
+                if (window.allLoadedCandidates) {
+                    const m2 = window.allLoadedCandidates.find(c => c.candidate_id === currentQuickEmailCandidateId);
+                    if (m2) m2.email = email;
+                    renderFilteredLeaderboardRows(window.allLoadedCandidates);
+                }
+                if (currentReviewCandidateId === currentQuickEmailCandidateId) {
+                    const reviewInp = document.getElementById('ar-cand-email-input');
+                    if (reviewInp) reviewInp.value = email;
+                    if (currentReviewCandidateData) currentReviewCandidateData.email = email;
+                }
+            } else {
+                showErrorToast(extractErrorMessage(data, 'Failed to update email.'));
+            }
+        } catch (err) {
+            console.error("Error saving email via quick modal:", err);
+            showErrorToast('Failed to save email: server unreachable.');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    };
+
     // ─── Approval / Rejection / Hold Handlers & Modals ─────────────────────
 
     window.openApproveConfirmationModal = function() {
         if (!currentReviewCandidateData) return;
         const modalName = document.getElementById('modal-approve-cand-name');
         if (modalName) modalName.textContent = currentReviewCandidateData.name || "Candidate";
+
+        const emailInput = document.getElementById('modal-approve-cand-email');
+        if (emailInput) {
+            const headerEmail = document.getElementById('ar-cand-email-input')?.value?.trim();
+            const existingEmail = headerEmail || (currentReviewCandidateData.email && currentReviewCandidateData.email !== "Not Specified" 
+                ? currentReviewCandidateData.email 
+                : "");
+            emailInput.value = existingEmail;
+            setTimeout(() => {
+                emailInput.focus();
+                emailInput.select();
+            }, 80);
+        }
 
         const modal = document.getElementById('approve-confirm-modal');
         if (modal) modal.classList.remove('hidden');
@@ -2307,31 +2550,71 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.confirmApproveCandidate = async function() {
         if (!currentReviewCandidateId) return;
+
+        const emailInput = document.getElementById('modal-approve-cand-email');
+        const headerEmailInput = document.getElementById('ar-cand-email-input');
+        const candidateEmail = (emailInput ? emailInput.value.trim() : "") || (headerEmailInput ? headerEmailInput.value.trim() : "");
+        if (!candidateEmail) {
+            showErrorToast("Please enter a recipient email address to send the shortlist mail.");
+            if (emailInput) emailInput.focus();
+            else if (headerEmailInput) headerEmailInput.focus();
+            return;
+        }
+
         const btn = document.getElementById('btn-modal-confirm-approve');
         if (btn) btn.disabled = true;
 
         const hrNotes = document.getElementById('ar-hr-notes-input')?.value || "";
 
         try {
-            const res = await authFetch(`${API_BASE}/candidates/${currentReviewCandidateId}/approve`, {
+            // STEP 1: Pre-save candidate email to database directly so it is permanently stored
+            try {
+                await authFetch(`${API_BASE}/candidates/${currentReviewCandidateId}/email`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: candidateEmail })
+                });
+            } catch (saveErr) {
+                console.warn("Pre-saving email note:", saveErr);
+            }
+
+            // STEP 2: Call approve with query param AND body for guaranteed delivery
+            const approveUrl = `${API_BASE}/candidates/${currentReviewCandidateId}/approve?candidate_email=${encodeURIComponent(candidateEmail)}`;
+            const res = await authFetch(approveUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hr_notes: hrNotes })
+                body: JSON.stringify({ 
+                    hr_notes: hrNotes,
+                    candidate_email: candidateEmail,
+                    email: candidateEmail
+                })
             });
             const data = await res.json();
 
             if (res.ok) {
                 closeApproveConfirmationModal();
-                showSuccessToast(`Shortlist Approved! Status marked as Approved. (Shortlist email queued / Phase 1 stubbed).`);
+                showSuccessToast(`Shortlist Approved! Email dispatch queued for ${candidateEmail}.`);
+
+                if (currentReviewCandidateData) {
+                    currentReviewCandidateData.email = candidateEmail;
+                }
+                const headerEmail = document.getElementById('ar-cand-email-input');
+                if (headerEmail) headerEmail.value = candidateEmail;
 
                 // Update UI status badge
                 const statusBadge = document.getElementById('ar-current-status-badge');
                 if (statusBadge) {
-                    statusBadge.className = "hr-status-badge approved";
-                    statusBadge.textContent = "Approved";
+                    statusBadge.className = "hr-status-badge queued";
+                    statusBadge.textContent = "Email Queued";
+                }
+                const approveBtn = document.getElementById('btn-action-approve-primary');
+                if (approveBtn) {
+                    approveBtn.disabled = true;
+                    approveBtn.style.opacity = '0.6';
                 }
                 fetchCandidateAuditLogs(currentReviewCandidateId);
                 updateApprovalKPIs();
+                fetchApprovalCandidates();
             } else {
                 showErrorToast(extractErrorMessage(data, 'Shortlist approval failed.'));
             }
@@ -2340,6 +2623,44 @@ document.addEventListener('DOMContentLoaded', () => {
             showErrorToast('Approval action failed: server unreachable.');
         } finally {
             if (btn) btn.disabled = false;
+        }
+    };
+
+    window.handleRetryEmail = async function() {
+        if (!currentReviewCandidateId) return;
+        const btn = document.getElementById('ar-btn-retry-email');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader" class="spinner"></i> <span>Retrying...</span>`;
+        }
+
+        try {
+            const res = await authFetch(`${API_BASE}/candidates/${currentReviewCandidateId}/retry-email`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showSuccessToast('Shortlist email retry successfully queued!');
+                const statusBadge = document.getElementById('ar-current-status-badge');
+                if (statusBadge) {
+                    statusBadge.className = "hr-status-badge queued";
+                    statusBadge.textContent = "Email Queued";
+                }
+                if (btn) btn.classList.add('hidden');
+                fetchCandidateAuditLogs(currentReviewCandidateId);
+                fetchApprovalCandidates();
+            } else {
+                showErrorToast(extractErrorMessage(data, 'Retry failed.'));
+            }
+        } catch (err) {
+            console.error("Error retrying email:", err);
+            showErrorToast('Failed to trigger email retry: server unreachable.');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="refresh-cw"></i> <span>Retry Email Send</span>`;
+            }
+            lucide.createIcons();
         }
     };
 
@@ -2481,6 +2802,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+
+    // ─── Email Inputs Keydown Listeners (Enter key support) ───────────────
+    document.getElementById('ar-cand-email-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            window.saveCandidateEmailDirectly();
+        }
+    });
+
+    document.getElementById('quick-email-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            window.submitQuickEmailModal();
+        }
+    });
+
+    document.getElementById('cd-spec-email-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            window.saveCandidateEmailFromDeepDive();
+        }
+    });
+
+    document.getElementById('modal-approve-cand-email')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            window.confirmApproveCandidate();
+        }
+    });
 
     // ─── Boot ─────────────────────────────────────────────────────────────
     checkAuthState();

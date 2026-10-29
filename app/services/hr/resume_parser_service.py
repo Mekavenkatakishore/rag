@@ -41,11 +41,15 @@ def process_single_resume(job_id: str, candidate_id: str, filename: str, file_by
             
         vectorstore.add_documents(chunks)
         
+        import re
+        email_match = re.search(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', resume_text)
+        extracted_email = email_match.group(0).strip() if email_match else ""
+
         hr_db.save_candidate(
             candidate_id=candidate_id,
             job_id=job_id,
             name=candidate_name,
-            email="",
+            email=extracted_email,
             filename=filename,
             status="success"
         )

@@ -20,6 +20,9 @@ VALID_CANDIDATE_STATUSES = {
     "Rejected",
     "On Hold",
     "Shortlisted - Email Sent",
+    "Approved & Email Sent",
+    "Shortlisted - Email Failed",
+    "Approved & Email Queued",
     "Pending",      # legacy
     "Shortlisted",  # legacy
 }
@@ -119,6 +122,21 @@ def initialize_hr_db():
                 created_at    TEXT NOT NULL
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS email_logs (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                candidate_id TEXT NOT NULL,
+                job_id       TEXT,
+                to_email     TEXT NOT NULL,
+                subject      TEXT NOT NULL,
+                status       TEXT NOT NULL,
+                error        TEXT,
+                attempts     INTEGER DEFAULT 0,
+                sent_at      TEXT,
+                sent_by      TEXT,
+                created_at   TEXT NOT NULL
+            )
+        """)
         # Safe migration checks for existing DB
         for col_def in [
             "candidate_status TEXT NOT NULL DEFAULT 'Screened'",
@@ -131,6 +149,16 @@ def initialize_hr_db():
                 cursor.execute(f"ALTER TABLE hr_candidates ADD COLUMN {col_def}")
             except sqlite3.OperationalError:
                 pass
+        # Reset any candidate left in 'Approved' without an email log back to 'Pending Approval'
+        try:
+            cursor.execute("""
+                UPDATE hr_candidates 
+                SET candidate_status = 'Pending Approval' 
+                WHERE candidate_status = 'Approved' 
+                  AND candidate_id NOT IN (SELECT candidate_id FROM email_logs WHERE status IN ('SENT', 'DELIVERED', 'QUEUED'))
+            """)
+        except Exception:
+            pass
 
 # ─── Job Operations ─────────────────────────────────────────────────────────
 
@@ -210,6 +238,21 @@ def get_job_candidate(job_id: str, candidate_id: str) -> dict | None:
         cursor.execute("SELECT * FROM hr_candidates WHERE job_id = ? AND candidate_id = ?", (job_id, candidate_id))
         row = cursor.fetchone()
         return dict(row) if row else None
+
+def get_candidate_by_id(candidate_id: str) -> dict | None:
+    """Get a candidate record by candidate_id alone."""
+    with get_db_connection(settings.HR_DATABASE_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM hr_candidates WHERE candidate_id = ?", (candidate_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+def update_candidate_email(candidate_id: str, email: str) -> bool:
+    """Updates candidate email address in the database."""
+    with get_db_connection(settings.HR_DATABASE_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE hr_candidates SET email = ? WHERE candidate_id = ?", (email.strip(), candidate_id))
+        return cursor.rowcount > 0
 
 def update_candidate_shortlist_status(job_id: str, candidate_id: str, status: str) -> dict | None:
     """Updates shortlist status for a specific candidate scoped to job_id."""
@@ -345,6 +388,7 @@ def clear_job_data(job_id: str):
         cursor.execute("DELETE FROM hr_candidate_evidence WHERE job_id = ?", (job_id,))
         cursor.execute("DELETE FROM hr_match_details WHERE job_id = ?", (job_id,))
         cursor.execute("DELETE FROM hr_audit_logs WHERE job_id = ?", (job_id,))
+        cursor.execute("DELETE FROM email_logs WHERE job_id = ?", (job_id,))
         cursor.execute("DELETE FROM hr_jobs WHERE job_id = ?", (job_id,))
 
 
@@ -504,7 +548,13 @@ def get_shortlisted_for_approval(
 
         if status_filter and status_filter.lower() != "all":
             if status_filter in ["Pending Approval", "Shortlisted (Pending Approval)"]:
-                query += " AND c.candidate_status IN ('Pending Approval', 'Shortlisted (Pending Approval)', 'Shortlisted')"
+                query += " AND c.candidate_status IN ('Pending Approval', 'Shortlisted (Pending Approval)', 'Shortlisted', 'Screened')"
+            elif status_filter == "Approved":
+                query += " AND c.candidate_status IN ('Approved', 'Approved & Email Sent', 'Shortlisted - Email Sent', 'Approved & Email Queued', 'Shortlisted - Email Failed')"
+            elif status_filter in ["Email Sent", "Approved & Email Sent", "Shortlisted - Email Sent"]:
+                query += " AND c.candidate_status IN ('Approved & Email Sent', 'Shortlisted - Email Sent')"
+            elif status_filter in ["Email Failed", "Shortlisted - Email Failed"]:
+                query += " AND c.candidate_status = 'Shortlisted - Email Failed'"
             else:
                 query += " AND c.candidate_status = ?"
                 params.append(status_filter)
@@ -565,3 +615,72 @@ def get_shortlisted_for_approval(
             c["rank"] = idx
 
         return candidates
+
+
+# ─── Email Logs Operations ──────────────────────────────────────────────────
+
+def create_email_log(
+    candidate_id: str,
+    job_id: str | None,
+    to_email: str,
+    subject: str,
+    sent_by: str,
+    status: str = "pending",
+    attempts: int = 0,
+    error: str = None
+) -> int:
+    """Inserts a new email dispatch record into email_logs."""
+    now = datetime.datetime.utcnow().isoformat()
+    with get_db_connection(settings.HR_DATABASE_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO email_logs (
+                candidate_id, job_id, to_email, subject, status, error, attempts, sent_at, sent_by, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+        """, (candidate_id, job_id, to_email, subject, status, error, attempts, sent_by, now))
+        return cursor.lastrowid
+
+def update_email_log(
+    log_id: int,
+    status: str,
+    error: str = None,
+    attempts: int = None,
+    sent_at: str = None
+) -> bool:
+    """Updates status, error message, attempts, or sent timestamp of an email log."""
+    with get_db_connection(settings.HR_DATABASE_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE email_logs
+            SET status = ?,
+                error = COALESCE(?, error),
+                attempts = COALESCE(?, attempts),
+                sent_at = COALESCE(?, sent_at)
+            WHERE id = ?
+        """, (status, error, attempts, sent_at, log_id))
+        return cursor.rowcount > 0
+
+def get_email_logs_for_candidate(candidate_id: str) -> list[dict]:
+    """Retrieves all email logs for a specific candidate."""
+    with get_db_connection(settings.HR_DATABASE_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM email_logs
+            WHERE candidate_id = ?
+            ORDER BY id DESC
+        """, (candidate_id,))
+        rows = cursor.fetchall()
+        return [dict(r) for r in rows]
+
+def has_successful_email_sent(candidate_id: str) -> bool:
+    """Returns True if an email has already been successfully sent to this candidate."""
+    with get_db_connection(settings.HR_DATABASE_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 1 FROM email_logs
+            WHERE candidate_id = ? AND status = 'sent'
+            LIMIT 1
+        """, (candidate_id,))
+        return cursor.fetchone() is not None
+

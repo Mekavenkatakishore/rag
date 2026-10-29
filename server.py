@@ -118,6 +118,14 @@ def spa_routes():
         return FileResponse(index_path)
     return RedirectResponse(url="/static/index.html")
 
+@app.get("/style.css")
+def get_root_style_css():
+    return FileResponse(os.path.join(STATIC_DIR, "style.css"))
+
+@app.get("/app.js")
+def get_root_app_js():
+    return FileResponse(os.path.join(STATIC_DIR, "app.js"))
+
 # Build initial index and initialize DB on startup
 @app.on_event("startup")
 async def startup_event():

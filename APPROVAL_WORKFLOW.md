@@ -56,24 +56,31 @@ Copy `.env.example` to `.env`:
 cp .env.example .env
 ```
 
-### Phase 2 SMTP Configuration (Mailtrap / MailHog for Local Dev)
-Add your SMTP credentials to `.env`:
+### Phase 2 SMTP Configuration (Real Gmail Account via SMTP)
+To send real shortlist emails directly to candidates using your personal or company Gmail account, add your credentials to `.env`:
+
 ```env
-# SMTP Configuration (Mailtrap Sandbox Example)
-SMTP_HOST=sandbox.smtp.mailtrap.io
-SMTP_PORT=2525
-SMTP_USER=your_mailtrap_user
-SMTP_PASSWORD=your_mailtrap_password
+# Gmail SMTP Configuration for Real Emails
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_16_character_app_password
 SMTP_FROM_NAME="Talent Acquisition Team"
-SMTP_FROM_EMAIL=careers@company.example.com
+SMTP_FROM_EMAIL=your_email@gmail.com
 SMTP_USE_TLS=true
+SMTP_USE_SSL=false
 ```
 
-> **Development Tip (Mailtrap)**:
-> 1. Sign up for free at [Mailtrap.io](https://mailtrap.io/).
-> 2. Create an **Email Testing Inbox**.
-> 3. Copy `Host`, `Port`, `Username`, and `Password` into `.env`.
-> 4. In Phase 2, all test emails will be captured safely inside your Mailtrap sandbox without contacting actual candidate addresses.
+### How to Get a Google App Password (Required for Gmail)
+Google requires an **App Password** (16 characters) instead of your regular password:
+1. Log into your Google Account: [Google Account Security](https://myaccount.google.com/security).
+2. Ensure **2-Step Verification** is turned **ON**.
+3. In the search bar at the top or under "How you sign in to Google", select **App passwords** (direct URL: [https://myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)).
+4. Enter an app name, e.g., `RAG Pro HR`, and click **Create**.
+5. Google will display a 16-character code (e.g., `abcd efgh ijkl mnop`).
+6. Copy that code and paste it into `.env` as `SMTP_PASSWORD`.
+7. Set `SMTP_USER` and `SMTP_FROM_EMAIL` to your Gmail address.
+8. That's it! When you approve a candidate, a real email is delivered directly to their inbox from your Gmail address.
 
 ---
 
@@ -88,18 +95,52 @@ SMTP_USE_TLS=true
 | `POST` | `/candidates/{id}/hold` | Places candidate On Hold. |
 | `GET` | `/candidates/{id}/email-preview` | Renders HTML & plain-text shortlist email preview. |
 | `GET` | `/candidates/{id}/audit-logs` | Retrieves complete audit history for a candidate. |
+| `POST` | `/candidates/{id}/retry-email` | Re-queues email delivery for candidates with failed email status. |
+| `GET` | `/candidates/{id}/email-logs` | Retrieves email delivery log history (attempts, timestamps, errors). |
 
 ---
 
-## 5. Running Automated Tests
+## 5. Phase 2 SMTP Delivery System
 
-Run the dedicated approval workflow unit test suite:
+### Email Lifecycle & Retry Worker
+1. **Human Trigger**: HR reviews candidate match details and clicks **"Approve & Send Shortlist Mail"**.
+2. **Immediate Enqueue**:
+   - Status updates to `Approved & Email Queued`.
+   - Idempotency guard checks `has_successful_email_sent` to guarantee no candidate receives duplicate shortlist emails.
+   - Initial dispatch log inserted into `email_logs` table (`status = 'pending'`, `attempts = 0`).
+   - Background worker task `deliver_shortlist_email_task` is scheduled via FastAPI `BackgroundTasks`.
+3. **Delivery Worker**:
+   - Enforces a rate limit delay to avoid spamming the SMTP relay.
+   - Attempts SMTP transport up to **3 times** with exponential backoff (`1s`, `2s`, `4s`).
+   - On success:
+     - `email_logs.status` $\rightarrow$ `sent`
+     - Candidate status $\rightarrow$ `Shortlisted - Email Sent`
+     - Audit log recorded $\rightarrow$ `SHORTLIST_EMAIL_SENT`
+   - On failure after 3 attempts:
+     - `email_logs.status` $\rightarrow$ `failed` (with full error message)
+     - Candidate status $\rightarrow$ `Shortlisted - Email Failed`
+     - Audit log recorded $\rightarrow$ `SHORTLIST_EMAIL_FAILED`
+4. **Manual Retry Action**:
+   - Candidates in status `Shortlisted - Email Failed` display a prominent **"Retry Email Send"** button in the review toolbar.
+   - Clicking retry calls `POST /candidates/{id}/retry-email`, re-enqueues the background worker, and updates status back to `Approved & Email Queued`.
+
+---
+
+## 6. Running Automated Tests
+
+Run the dedicated approval workflow unit test suite (Phase 1):
 ```bash
 python -m unittest tests/test_approval_workflow.py
 ```
 
-Run the complete test suite:
+Run the Phase 2 SMTP email system unit test suite:
+```bash
+python -m unittest tests/test_smtp_email.py
+```
+
+Run all tests:
 ```bash
 python -m unittest discover tests
 ```
+
 

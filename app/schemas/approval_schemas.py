@@ -1,8 +1,21 @@
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
+class CandidateEmailUpdateRequest(BaseModel):
+    email: str = Field(..., description="Candidate email address to set")
+
+class CandidateEmailUpdateResponse(BaseModel):
+    status: str = "success"
+    message: str = "Candidate email address updated successfully"
+    candidate_id: str
+    email: str
+
 class CandidateApproveRequest(BaseModel):
     hr_notes: Optional[str] = Field(default=None, description="Optional notes written by the approving HR user")
+    custom_subject: Optional[str] = Field(default=None, description="Optional custom email subject override")
+    custom_next_step: Optional[str] = Field(default=None, description="Optional custom next steps text override")
+    candidate_email: Optional[str] = Field(default=None, description="Optional email address to send to if candidate has none or needs updating")
+    email: Optional[str] = Field(default=None, description="Alternative alias for candidate_email")
 
 class CandidateRejectRequest(BaseModel):
     hr_notes: Optional[str] = Field(default=None, description="Optional internal notes")
@@ -105,4 +118,24 @@ class EmailPreviewResponse(BaseModel):
     hr_contact: str
     html_body: str
     plain_text_body: str
+
+class EmailLogItem(BaseModel):
+    id: int
+    candidate_id: str
+    job_id: Optional[str] = None
+    to_email: str
+    subject: str
+    status: str
+    error: Optional[str] = None
+    attempts: int = 0
+    sent_at: Optional[str] = None
+    sent_by: Optional[str] = None
+    created_at: str
+
+class EmailLogsResponse(BaseModel):
+    status: str = "success"
+    candidate_id: str
+    total: int
+    logs: List[EmailLogItem]
+
 

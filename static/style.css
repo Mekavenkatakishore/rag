@@ -2063,6 +2063,24 @@ code {
     border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
+.hr-status-badge.email-sent {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.hr-status-badge.email-failed {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.hr-status-badge.email-queued, .hr-status-badge.queued {
+    background: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
 .hr-status-badge.on-hold {
     background: rgba(59, 130, 246, 0.15);
     color: #60a5fa;
@@ -2073,6 +2091,26 @@ code {
     background: rgba(239, 68, 68, 0.15);
     color: #f87171;
     border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-action-retry-email {
+    background: #f59e0b;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
+.btn-action-retry-email:hover {
+    background: #d97706;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
 }
 
 /* Sticky Action Toolbar */
@@ -3168,6 +3206,68 @@ code {
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CANDIDATE EMAIL INTERACTIVE CONTROLS
+═══════════════════════════════════════════════════════════════ */
+.toolbar-email-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.toolbar-email-row input {
+    background: #0c0a18;
+    border: 1px solid #2b2448;
+    color: #f0eefb;
+    font-size: 0.82rem;
+    padding: 5px 10px;
+    border-radius: 6px;
+    width: 230px;
+    transition: var(--transition-smooth);
+}
+
+.toolbar-email-row input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.25);
+}
+
+.cand-table-email {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #9a94bd;
+    font-size: 0.76rem;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: var(--transition-smooth);
+}
+
+.cand-table-email:hover {
+    color: #f0eefb;
+    background: rgba(124, 58, 237, 0.15);
+}
+
+.cand-table-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #f59e0b;
+    font-size: 0.72rem;
+    cursor: pointer;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px dashed rgba(245, 158, 11, 0.35);
+    padding: 2px 7px;
+    border-radius: 4px;
+    transition: var(--transition-smooth);
+}
+
+.cand-table-add-btn:hover {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: #f59e0b;
 }
 
 

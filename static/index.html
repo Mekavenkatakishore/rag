@@ -14,7 +14,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
@@ -468,6 +468,16 @@
                                 <div class="cd-spec-item"><i data-lucide="clock"></i><span class="spec-lbl">Notice Period</span><span class="spec-val" id="cd-spec-notice">30 Days</span></div>
                                 <div class="cd-spec-item"><i data-lucide="zap"></i><span class="spec-lbl">Availability</span><span class="spec-val" id="cd-spec-avail">Immediately</span></div>
                                 <div class="cd-spec-item"><i data-lucide="dollar-sign"></i><span class="spec-lbl">CTC</span><span class="spec-val" id="cd-spec-ctc">18 LPA</span></div>
+                                <div class="cd-spec-item" style="grid-column: 1 / -1; display:flex; flex-direction:column; align-items:flex-start; gap:4px;">
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <i data-lucide="mail"></i>
+                                        <span class="spec-lbl">Candidate Email:</span>
+                                    </div>
+                                    <div style="display:flex; width:100%; gap:6px;">
+                                        <input type="email" id="cd-spec-email-input" placeholder="candidate@example.com" style="flex:1; background:#0c0a18; border:1px solid #2b2448; color:#f0eefb; padding:4px 8px; border-radius:4px; font-size:0.8rem; outline:none;">
+                                        <button class="action-btn-primary" onclick="saveCandidateEmailFromDeepDive()" style="padding:4px 10px; font-size:0.75rem; border-radius:4px;">Save</button>
+                                    </div>
+                                </div>
                                 <div class="cd-spec-item"><i data-lucide="calendar"></i><span class="spec-lbl">Matched On</span><span class="spec-val" id="cd-spec-date">Today</span></div>
                             </div>
                         </div>
@@ -698,6 +708,14 @@
                         <div class="toolbar-candidate-info">
                             <h3 id="ar-cand-header-name">Candidate Name</h3>
                             <span id="ar-cand-header-role">Applied Role</span>
+                            <div class="toolbar-email-row" style="display:flex; align-items:center; gap:6px; margin-top:6px;">
+                                <i data-lucide="mail" style="width:14px; height:14px; color:var(--accent);"></i>
+                                <input type="email" id="ar-cand-email-input" placeholder="candidate@example.com" style="background:#0c0a18; border:1px solid #2b2448; color:#f0eefb; font-size:0.8rem; padding:4px 8px; border-radius:4px; width:220px; outline:none;" title="Candidate recipient email">
+                                <button class="action-btn-primary" id="btn-save-review-email" onclick="saveCandidateEmailDirectly()" title="Save email" style="padding:4px 10px; font-size:0.75rem; border-radius:4px;">
+                                    <i data-lucide="save" style="width:12px; height:12px;"></i>
+                                    <span>Save</span>
+                                </button>
+                            </div>
                         </div>
                         <div class="toolbar-score-pill" id="ar-cand-header-score">
                             <span class="score-val">85%</span>
@@ -710,6 +728,10 @@
                     </div>
 
                     <div class="toolbar-buttons-group">
+                        <button class="btn-action-retry-email hidden" id="ar-btn-retry-email" onclick="handleRetryEmail()" title="Retry Sending Shortlist Email">
+                            <i data-lucide="refresh-cw"></i>
+                            <span>Retry Email Send</span>
+                        </button>
                         <button class="btn-action-email-preview" onclick="openEmailPreviewModal()" title="Preview Shortlist Email Template">
                             <i data-lucide="mail"></i>
                             <span>Preview Email</span>
@@ -722,7 +744,7 @@
                             <i data-lucide="x-circle"></i>
                             <span>Reject</span>
                         </button>
-                        <button class="btn-action-approve-primary" onclick="openApproveConfirmationModal()" title="Approve and Authorize Shortlist Email">
+                        <button class="btn-action-approve-primary" id="btn-action-approve-primary" onclick="openApproveConfirmationModal()" title="Approve and Authorize Shortlist Email">
                             <i data-lucide="check-circle-2"></i>
                             <span>Approve & Send Shortlist Mail</span>
                         </button>
@@ -918,6 +940,33 @@
     <!--  CONFIRMATION & PREVIEW MODALS                               -->
     <!-- ═══════════════════════════════════════════════════════════ -->
 
+    <!-- QUICK EDIT CANDIDATE EMAIL MODAL -->
+    <div class="auth-overlay hidden" id="quick-email-modal">
+        <div class="auth-modal" style="max-width: 440px;">
+            <div class="auth-modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i data-lucide="mail" style="color:var(--accent); width:20px; height:20px;"></i>
+                    <h3 style="font-size:1.1rem; font-weight:700;">Edit Candidate Email</h3>
+                </div>
+                <button class="close-modal-btn" onclick="closeQuickEmailModal()">&times;</button>
+            </div>
+            <div style="padding: 10px 0;">
+                <p style="font-size:0.88rem; color:#cbd5e1; margin-bottom: 12px;">Recipient email address for <strong id="quick-email-cand-name" style="color:#ffffff;">Candidate</strong>:</p>
+                <div class="form-group">
+                    <label for="quick-email-input" style="font-size:0.8rem; font-weight:600; color:#cbd5e1; margin-bottom:4px;">Email Address:</label>
+                    <input type="email" id="quick-email-input" placeholder="e.g. candidate@gmail.com" style="width: 100%; background: #0c0a18; border: 1px solid #2b2448; color: #f0eefb; padding: 10px 12px; border-radius: 6px; font-size: 0.9rem; outline: none;" required>
+                </div>
+            </div>
+            <div style="display:flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+                <button class="action-btn-secondary" onclick="closeQuickEmailModal()">Cancel</button>
+                <button class="action-btn-primary" id="btn-save-quick-email" onclick="submitQuickEmailModal()">
+                    <i data-lucide="check"></i>
+                    <span>Save Email</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- APPROVE CONFIRMATION MODAL -->
     <div class="auth-overlay hidden" id="approve-confirm-modal">
         <div class="auth-modal" style="max-width: 520px;">
@@ -930,9 +979,18 @@
             </div>
             <div style="padding: 16px 0; color: #cbd5e1; font-size: 0.95rem; line-height: 1.5;">
                 <p>Are you sure you want to approve <strong id="modal-approve-cand-name" style="color:#ffffff;">Candidate</strong>?</p>
+                
+                <div class="form-group" style="margin: 14px 0;">
+                    <label for="modal-approve-cand-email" style="display:block; font-size: 0.82rem; font-weight:600; color: #cbd5e1; margin-bottom: 5px;">
+                        Candidate Recipient Email Address: <span style="color: #ef4444;">*</span>
+                    </label>
+                    <input type="email" id="modal-approve-cand-email" placeholder="e.g. candidate@gmail.com" style="width: 100%; background: #0c0a18; border: 1px solid #2b2448; color: #f0eefb; padding: 8px 12px; border-radius: 6px; font-size: 0.88rem; outline: none;" required>
+                    <p style="font-size: 0.72rem; color: #9a94bd; margin-top: 4px; margin-bottom: 0;">Specify or verify the candidate's email address where the shortlist invitation will be sent.</p>
+                </div>
+
                 <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; padding: 12px; margin: 14px 0; font-size: 0.85rem; color: #a5b4fc;">
-                    <i data-lucide="info" style="display:inline; width:14px; height:14px; margin-right:4px;"></i>
-                    <strong>Phase 1 Human-Approval:</strong> The candidate status will update to <code>Approved</code>. In Phase 1, email sending is stubbed and logged; SMTP sending will execute in Phase 2.
+                    <i data-lucide="mail-check" style="display:inline; width:14px; height:14px; margin-right:4px;"></i>
+                    <strong>Phase 2 SMTP Email System:</strong> Shortlist email will be immediately queued and delivered to candidate's verified address via background SMTP worker (with 3-attempt backoff retry).
                 </div>
                 <p style="font-size: 0.85rem; color: #94a3b8;">The audit trail will record your approval timestamp and user credentials.</p>
             </div>
@@ -1032,6 +1090,6 @@
     </div>
 
     <!-- Script -->
-    <script src="app.js"></script>
+    <script src="/static/app.js"></script>
 </body>
 </html>
