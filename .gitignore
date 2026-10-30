@@ -1,7 +1,7 @@
 # Environment Variables & Secrets (CRITICAL: Never commit real keys)
 .env
 *.env
-!.env.example
+.env.example
 
 # Python Cache & Virtual Environments
 __pycache__/
