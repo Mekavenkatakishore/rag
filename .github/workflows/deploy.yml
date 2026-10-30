@@ -16,6 +16,9 @@ jobs:
   test:
     name: Run Automated Test Gate
     runs-on: ubuntu-latest
+    env:
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GROQ_MODEL: llama-3.3-70b-versatile
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -32,6 +35,14 @@ jobs:
           pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
           pip install pytest httpx
+
+      - name: Validate Groq configuration
+        run: |
+          if [ -z "${GROQ_API_KEY}" ]; then
+            echo "GROQ_API_KEY secret is missing. Add it in GitHub repo Actions secrets."
+            exit 1
+          fi
+          echo "Groq API key detected."
 
       - name: Execute Automated Test Suite (43 Tests)
         run: |
