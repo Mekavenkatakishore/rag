@@ -7,6 +7,7 @@ Works in CI/CD without requiring an external running server.
 
 from fastapi.testclient import TestClient
 from server import app
+from app.db.user_db import initialize_db
 
 client = TestClient(app)
 
@@ -15,6 +16,9 @@ EMAIL = "testuser@ragpro.dev"
 PASSWORD = "securepass123"
 
 def test_auth_flow():
+    # Ensure fresh test database has users table initialized on CI
+    initialize_db()
+
     print("=" * 55)
     print("  RAG Pro — JWT Authentication Test Suite")
     print("=" * 55)

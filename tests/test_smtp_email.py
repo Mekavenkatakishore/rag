@@ -83,6 +83,12 @@ class TestSMTPEmailSystem(unittest.TestCase):
             cursor.execute("DELETE FROM hr_audit_logs WHERE candidate_id LIKE 'C_%' OR job_id = ?", (self.test_job_id,))
             cursor.execute("DELETE FROM hr_candidates WHERE candidate_id IN ('C_RETRY_TEST', 'C_EMAIL_UPDATE_TEST', 'C_PERM_FAIL')")
 
+        # Ensure test SMTP credentials are populated for mock test runs on clean CI environments
+        from app.core.config import settings
+        settings.SMTP_USER = "recruiter@gmail.com"
+        settings.SMTP_PASSWORD = "app_pass_1234"
+        settings.SMTP_FROM_EMAIL = "recruiter@gmail.com"
+
     def tearDown(self):
         # Clean up database records created during test
         with hr_db.get_db_connection(hr_db.settings.HR_DATABASE_PATH) as conn:
@@ -90,12 +96,6 @@ class TestSMTPEmailSystem(unittest.TestCase):
             cursor.execute("DELETE FROM email_logs WHERE candidate_id LIKE 'C_%' OR job_id = ?", (self.test_job_id,))
             cursor.execute("DELETE FROM hr_audit_logs WHERE candidate_id LIKE 'C_%' OR job_id = ?", (self.test_job_id,))
             cursor.execute("DELETE FROM hr_candidates WHERE candidate_id IN ('C_RETRY_TEST', 'C_EMAIL_UPDATE_TEST', 'C_PERM_FAIL')")
-
-        # Ensure test SMTP credentials are populated for mock test runs
-        from app.core.config import settings
-        settings.SMTP_USER = "recruiter@gmail.com"
-        settings.SMTP_PASSWORD = "app_pass_1234"
-        settings.SMTP_FROM_EMAIL = "recruiter@gmail.com"
 
     def test_email_validation(self):
         """Verify robust email address validation rules."""
