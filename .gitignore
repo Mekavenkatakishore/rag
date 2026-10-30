@@ -1,25 +1,38 @@
-# Environment & API Keys
+# Environment Variables & Secrets (CRITICAL: Never commit real keys)
 .env
 *.env
+!.env.example
 
-# Python Cache & Environments
+# Python Cache & Virtual Environments
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
 .venv/
 venv/
 ENV/
 env/
 
-# IDE & OS
+# IDE & Operating System
 .vscode/
 .idea/
 .DS_Store
+Thumbs.db
+*.swp
 
-# Temporary & Local Database Files (keep folders clean)
-*.log
+# Persistent Docker Data & Local State
+data/
 chroma_db/
 uploaded_files/*
 !uploaded_files/.gitkeep
-app/db/users.db
-.env.example
+logs/
+*.log
+
+# SQLite Database Files (Local state, never commit to git)
+*.db
+*.sqlite
+*.sqlite3
+app/db/*.db

@@ -6,7 +6,7 @@ langchain-groq
 langgraph>=0.2.0
 sentence-transformers
 transformers
-torch>=2.7.0
+torch>=2.2.0
 langchain-text-splitters
 tiktoken
 langchain-experimental

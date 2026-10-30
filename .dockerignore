@@ -1,0 +1,44 @@
+# Version Control
+.git/
+.gitignore
+.gitattributes
+
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local Environment Variables & Secrets
+.env
+*.env
+*.pem
+*.key
+
+# Dynamic Local Data (handled via Docker Volumes)
+data/
+chroma_db/
+uploaded_files/*
+!uploaded_files/.gitkeep
+logs/
+app/db/*.db
+
+# IDE & Editor Specific
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Documentation & Markdown
+*.md
+

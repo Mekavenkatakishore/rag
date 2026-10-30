@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  rag-pro:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag_pro_app
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    env_file:
+      - .env
+    environment:
+      # Direct SQLite databases into persistent /app/data so app/db Python code is NOT shadowed
+      - USER_DATABASE_PATH=/app/data/users.db
+      - HR_DATABASE_PATH=/app/data/hr_system.db
+      # Cache Hugging Face models so container restarts do not re-download them
+      - HF_HOME=/app/data/huggingface
+    volumes:
+      # Persistent bind mounts (Host Folder : Container Folder)
+      - ./data/storage:/app/data
+      - ./data/chroma_db:/app/chroma_db
+      - ./data/uploaded_files:/app/uploaded_files
+      - ./data/logs:/app/logs
+
