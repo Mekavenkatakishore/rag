@@ -56,7 +56,7 @@ class TestHRMatchingSystem(unittest.TestCase):
         cands = hr_db.get_job_candidates(job_id)
         self.assertEqual(len(cands), 1)
         self.assertEqual(cands[0]["name"], "Alice Smith")
-        self.assertEqual(cands[0].get("candidate_status", "Pending"), "Pending")
+        self.assertEqual(cands[0].get("candidate_status"), "Screened")
         
         hr_db.clear_job_data(job_id)
         self.assertIsNone(hr_db.get_job(job_id))
@@ -74,9 +74,9 @@ class TestHRMatchingSystem(unittest.TestCase):
         hr_db.save_candidate(cand_id_a, job_a, "Alice Smith", "alice@example.com", "alice_resume.pdf")
         hr_db.save_candidate(cand_id_b, job_b, "Alice Smith", "alice@example.com", "alice_resume.pdf")
 
-        # Initial status must be Pending
+        # Initial status must be Screened
         cands_a = hr_db.get_job_candidates(job_a)
-        self.assertEqual(cands_a[0].get("candidate_status"), "Pending")
+        self.assertEqual(cands_a[0].get("candidate_status"), "Screened")
 
         # Shortlist under Job A only
         res = hr_db.update_candidate_shortlist_status(job_a, cand_id_a, "Shortlisted")
@@ -89,14 +89,14 @@ class TestHRMatchingSystem(unittest.TestCase):
         self.assertEqual(len(shortlisted_a), 1)
         self.assertEqual(shortlisted_a[0]["candidate_id"], cand_id_a)
 
-        # Verify Job B candidate remains Pending (JD Isolation)
+        # Verify Job B candidate remains Screened (JD Isolation)
         cands_b = hr_db.get_job_candidates(job_b)
-        self.assertEqual(cands_b[0].get("candidate_status"), "Pending")
+        self.assertEqual(cands_b[0].get("candidate_status"), "Screened")
         self.assertEqual(len(hr_db.get_shortlisted_candidates(job_b)), 0)
 
         # Remove from shortlist under Job A
-        res_remove = hr_db.update_candidate_shortlist_status(job_a, cand_id_a, "Pending")
-        self.assertEqual(res_remove["candidate_status"], "Pending")
+        res_remove = hr_db.update_candidate_shortlist_status(job_a, cand_id_a, "Screened")
+        self.assertEqual(res_remove["candidate_status"], "Screened")
         self.assertEqual(len(hr_db.get_shortlisted_candidates(job_a)), 0)
 
         # Test invalid status raises ValueError

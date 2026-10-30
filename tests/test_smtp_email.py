@@ -76,6 +76,21 @@ class TestSMTPEmailSystem(unittest.TestCase):
         )
         hr_db.update_candidate_shortlist_status(self.test_job_id, self.cand_fail_id, "Shortlisted (Pending Approval)")
 
+        # Clear existing logs for isolated test candidates
+        with hr_db.get_db_connection(hr_db.settings.HR_DATABASE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM email_logs WHERE candidate_id LIKE 'C_%' OR job_id = ?", (self.test_job_id,))
+            cursor.execute("DELETE FROM hr_audit_logs WHERE candidate_id LIKE 'C_%' OR job_id = ?", (self.test_job_id,))
+            cursor.execute("DELETE FROM hr_candidates WHERE candidate_id IN ('C_RETRY_TEST', 'C_EMAIL_UPDATE_TEST', 'C_PERM_FAIL')")
+
+    def tearDown(self):
+        # Clean up database records created during test
+        with hr_db.get_db_connection(hr_db.settings.HR_DATABASE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM email_logs WHERE candidate_id LIKE 'C_%' OR job_id = ?", (self.test_job_id,))
+            cursor.execute("DELETE FROM hr_audit_logs WHERE candidate_id LIKE 'C_%' OR job_id = ?", (self.test_job_id,))
+            cursor.execute("DELETE FROM hr_candidates WHERE candidate_id IN ('C_RETRY_TEST', 'C_EMAIL_UPDATE_TEST', 'C_PERM_FAIL')")
+
         # Ensure test SMTP credentials are populated for mock test runs
         from app.core.config import settings
         settings.SMTP_USER = "recruiter@gmail.com"
@@ -155,7 +170,7 @@ class TestSMTPEmailSystem(unittest.TestCase):
 
         # 2. Execute background task synchronously
         for task in bg_tasks.tasks:
-            task()
+            task.func(*task.args, **task.kwargs)
 
         # Verify SMTP server interaction
         mock_server.sendmail.assert_called_once()
@@ -195,7 +210,7 @@ class TestSMTPEmailSystem(unittest.TestCase):
             rate_limit_delay=0.0
         )
         for task in bg_tasks.tasks:
-            task()
+            task.func(*task.args, **task.kwargs)
 
         self.assertEqual(mock_server.sendmail.call_count, 2)
 
@@ -228,7 +243,7 @@ class TestSMTPEmailSystem(unittest.TestCase):
             rate_limit_delay=0.0
         )
         for task in bg_tasks.tasks:
-            task()
+            task.func(*task.args, **task.kwargs)
 
         self.assertEqual(mock_server.sendmail.call_count, 3)
 
@@ -263,7 +278,7 @@ class TestSMTPEmailSystem(unittest.TestCase):
             rate_limit_delay=0.0
         )
         for task in bg_tasks.tasks:
-            task()
+            task.func(*task.args, **task.kwargs)
 
         self.assertTrue(hr_db.has_successful_email_sent(self.cand_valid_id))
 
@@ -315,7 +330,7 @@ class TestSMTPEmailSystem(unittest.TestCase):
 
         # Run worker
         for task in bg_tasks.tasks:
-            task()
+            task.func(*task.args, **task.kwargs)
 
         # Candidate now updated to sent
         cand = hr_db.get_candidate_by_id(cand_id)
@@ -355,7 +370,7 @@ class TestSMTPEmailSystem(unittest.TestCase):
         # Approve candidate
         with patch("smtplib.SMTP") as mock_smtp_class:
             mock_smtp = MagicMock()
-            mock_smtp_class.return_value.__enter__.return_value = mock_smtp
+            mock_smtp_class.return_value = mock_smtp
 
             bg_tasks = BackgroundTasks()
             res = approval_service.approve_candidate(
@@ -367,7 +382,7 @@ class TestSMTPEmailSystem(unittest.TestCase):
             self.assertEqual(res["status"], "success")
 
             for task in bg_tasks.tasks:
-                task()
+                task.func(*task.args, **task.kwargs)
 
             cand_final = hr_db.get_candidate_by_id(cand_id)
             self.assertEqual(cand_final["candidate_status"], "Shortlisted - Email Sent")

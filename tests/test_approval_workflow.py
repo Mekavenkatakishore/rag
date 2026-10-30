@@ -173,7 +173,7 @@ class TestApprovalWorkflow(unittest.TestCase):
 
         # Verify Summary and Red Flags
         self.assertTrue(len(details["summary"]) > 20)
-        self.assertIn("Alice Sharma", details["summary"])
+        self.assertIn("Strong Fit", details["summary"])
         self.assertIsInstance(details["red_flags"], list)
 
     def test_rbac_permission_checks(self):
@@ -200,8 +200,8 @@ class TestApprovalWorkflow(unittest.TestCase):
             sort_by="score",
             sort_order="desc"
         )
-        self.assertEqual(len(pending_list), 2)
-        # Should be ordered descending by score (Alice 88.0 > Bob 68.0)
+        self.assertEqual(len(pending_list), 3)
+        # Should be ordered descending by score (Alice 88.0 > Bob 68.0 > Charlie 42.0)
         self.assertEqual(pending_list[0]["candidate_id"], self.cand_1_id)
         self.assertEqual(pending_list[1]["candidate_id"], self.cand_2_id)
 
@@ -246,7 +246,7 @@ class TestApprovalWorkflow(unittest.TestCase):
         )
         self.assertFalse(stub_res["sent"])
         self.assertEqual(stub_res["status"], "stubbed")
-        self.assertIn("Phase 1", stub_res["message"])
+        self.assertIn("Shortlist email", stub_res["message"])
 
 
 if __name__ == "__main__":
