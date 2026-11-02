@@ -2,6 +2,8 @@
 .env
 *.env
 .env.example
+setup_server.ps1
+*.pem
 
 # Python Cache & Virtual Environments
 __pycache__/
