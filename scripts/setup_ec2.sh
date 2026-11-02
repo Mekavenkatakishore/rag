@@ -46,7 +46,7 @@ services:
     container_name: rag_pro_app
     restart: unless-stopped
     ports:
-      - "8002:8000"
+      - "80:8000"
     env_file:
       - .env
     environment:
