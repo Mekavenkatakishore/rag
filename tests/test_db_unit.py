@@ -67,3 +67,15 @@ def test_duplicate_user_raises_conflict(temp_user_db):
             salt="salt"
         )
 
+def test_default_admin_seeded_on_init(temp_user_db):
+    """Verify that initialize_db automatically seeds the admin user with admin@2026."""
+    from app.core.security import verify_password
+    
+    admin = user_db.get_user_by_username("admin")
+    assert admin is not None
+    assert admin["username"] == "admin"
+    assert admin["email"] == "admin@ragpro.dev"
+    assert admin["role"] == "hr"
+    assert verify_password("admin@2026", admin["hashed_password"], admin["salt"]) is True
+
+

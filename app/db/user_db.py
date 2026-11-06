@@ -5,10 +5,13 @@ SQLite-backed user storage using Python's built-in sqlite3 module.
 Refactored to use centralized app.core.config settings and app.db.base_db context manager.
 """
 
+import os
 import sqlite3
 import datetime
 from app.core.config import settings
 from app.db.base_db import get_db_connection
+from app.core.security import generate_salt, hash_password
+from app.utils.logger import logger
 
 def get_connection() -> sqlite3.Connection:
     """Opens and returns a connection to the SQLite database."""
@@ -16,8 +19,43 @@ def get_connection() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     return conn
 
+def seed_default_user():
+    """Seeds or updates the default admin/testing account."""
+    demo_username = os.getenv("DEMO_USERNAME", "admin")
+    demo_email = os.getenv("DEMO_EMAIL", "admin@ragpro.dev")
+    demo_password = os.getenv("DEMO_PASSWORD", "admin@2026")
+    demo_role = "hr"
+
+    try:
+        with get_db_connection(settings.USER_DATABASE_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM users WHERE username = ?", (demo_username,))
+            row = cursor.fetchone()
+            salt = generate_salt()
+            hashed = hash_password(demo_password, salt)
+            created_at = datetime.datetime.utcnow().isoformat()
+            if row is None:
+                cursor.execute(
+                    """
+                    INSERT INTO users (username, email, hashed_password, salt, role, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (demo_username, demo_email, hashed, salt, demo_role, created_at)
+                )
+                logger.info(f"Default admin account '{demo_username}' created successfully.")
+            else:
+                cursor.execute(
+                    """
+                    UPDATE users SET hashed_password = ?, salt = ? WHERE username = ?
+                    """,
+                    (hashed, salt, demo_username)
+                )
+                logger.info(f"Default admin account '{demo_username}' password synced successfully.")
+    except Exception as e:
+        logger.warning(f"Failed to seed demo admin account: {e}")
+
 def initialize_db():
-    """Creates the users table if it does not already exist."""
+    """Creates the users table if it does not already exist and seeds default admin credentials."""
     with get_db_connection(settings.USER_DATABASE_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -35,6 +73,8 @@ def initialize_db():
             cursor.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'hr'")
         except sqlite3.OperationalError:
             pass
+
+    seed_default_user()
 
 def create_user(username: str, email: str, hashed_password: str, salt: str, role: str = "hr") -> dict:
     """Inserts a new user row into the users table."""

@@ -287,6 +287,19 @@ Configured in GitHub **Settings -> Secrets and variables -> Actions**:
 
 ---
 
+## 🔑 Default Demo & Testing Credentials
+
+The system includes automatic database seeding on startup in `app/db/user_db.py`. Whenever the app initializes (locally, in CI test suites, or on AWS EC2), a pre-configured demo account is automatically seeded/synced:
+
+- **Username:** `admin`
+- **Password:** `admin@2026`
+- **Email:** `admin@ragpro.dev`
+- **Role:** `hr`
+
+*The login modal also features an interactive **"Auto-fill"** button so testers and reviewers can log in with a single click.*
+
+---
+
 ## 🔄 Daily Developer Workflow (Zero-Touch Deployment)
 
 Going forward, your deployment is **100% automated**. You never need to SSH into AWS or run server commands manually:

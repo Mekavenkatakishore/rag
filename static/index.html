@@ -58,6 +58,21 @@
                     <span>Sign In</span>
                     <i data-lucide="arrow-right"></i>
                 </button>
+
+                <!-- Quick Testing / Admin Credentials Box -->
+                <div class="demo-auth-box" id="demo-credentials-box">
+                    <div class="demo-auth-header">
+                        <span class="demo-badge"><i data-lucide="shield-check" style="width:13px;height:13px;vertical-align:middle;margin-right:3px;"></i> Demo / Testing Account</span>
+                        <button type="button" class="demo-autofill-btn" onclick="fillDemoCredentials()">
+                            <i data-lucide="sparkles" style="width:12px;height:12px;"></i> Auto-fill
+                        </button>
+                    </div>
+                    <div class="demo-creds">
+                        <span>User: <code>admin</code></span>
+                        <span>Pass: <code>admin@2026</code></span>
+                    </div>
+                </div>
+
                 <p class="auth-switch-text">Don't have an account? <a onclick="switchTab('register')">Sign up</a></p>
             </form>
 
@@ -1066,7 +1081,7 @@
                 <pre id="ep-text-view" class="email-text-box hidden"></pre>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; pt-2; border-top: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 8px; border-top: 1px solid var(--border-color);">
                 <span style="font-size: 0.8rem; color: #94a3b8;"><i data-lucide="info" style="display:inline; width:12px; height:12px;"></i> Phase 1 email preview. Email will be sent upon approval in Phase 2.</span>
                 <button class="action-btn-secondary" onclick="closeEmailPreviewModal()">Close Preview</button>
             </div>

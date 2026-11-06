@@ -292,6 +292,18 @@ document.addEventListener('DOMContentLoaded', () => {
         lucide.createIcons();
     };
 
+    /** Autofill demo admin credentials */
+    window.fillDemoCredentials = function() {
+        const userField = document.getElementById('login-username');
+        const passField = document.getElementById('login-password');
+        if (userField && passField) {
+            userField.value = 'admin';
+            passField.value = 'admin@2026';
+            userField.focus();
+        }
+    };
+
+
     /** Handle Login form submit */
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1440,6 +1452,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lucide.createIcons();
     };
 
+
     window.scrollToCDSection = function(sectionName) {
         document.querySelectorAll('.cd-nav-tabs .cd-tab-btn').forEach(btn => btn.classList.remove('active'));
         const targetBtn = document.getElementById(`tab-btn-${sectionName}`);
@@ -2463,6 +2476,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lucide.createIcons();
     };
 
+
     window.closeQuickEmailModal = function() {
         const modal = document.getElementById('quick-email-modal');
         if (modal) modal.classList.add('hidden');
@@ -2542,6 +2556,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (modal) modal.classList.remove('hidden');
         lucide.createIcons();
     };
+
 
     window.closeApproveConfirmationModal = function() {
         const modal = document.getElementById('approve-confirm-modal');
@@ -2673,6 +2688,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (modal) modal.classList.remove('hidden');
         lucide.createIcons();
     };
+
 
     window.closeRejectConfirmationModal = function() {
         const modal = document.getElementById('reject-confirm-modal');
